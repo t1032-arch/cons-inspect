@@ -703,7 +703,7 @@ good
 
 ---
 
-## 22. 開發進度與待辦事項（2026-09-07 暫停於此）
+## 22. 開發進度與待辦事項（2026-09-08 暫停於此）
 
 Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working tree 乾淨，所有內容皆已 push）。
 
@@ -720,11 +720,22 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
   - `VITE_GOOGLE_CLIENT_ID`：用 t1032 帳號在 Google Cloud Console 新建專案 `cons-inspect`（獨立於發文平台的專案），OAuth consent screen 選 Internal，手動加上 `https://www.googleapis.com/auth/drive` scope（不在預設勾選清單中，要在「手動新增範圍」欄位貼上），建立 Web application 類型憑證，已確認 `http://localhost:5173` 已加入「已授權的 JavaScript 來源」
   - `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`：13001（總務主任）帳號建立根資料夾，一般存取權設成「同網域使用者皆可編輯」（比照發文平台實際做法，不需逐一加使用者）
 - 兩位 admin 已寫入 `insp_user_roles`（2026-09-07）：`t1032@tlhc.ylc.edu.tw`、`13001@tlhc.ylc.edu.tw`。兩人先前都登入過標案管理平台/發文平台，`auth.users` 裡已有帳號，故直接用既有 `user_id` insert，不需要另外建立登入帳號
+- **（2026-09-08）修改紀錄功能**：`src/lib/editInspection.ts` 新增，`InspectionDetailPage` 加上 admin-only 的「編輯」按鈕，可修改日期/時間/地點/巡檢人員/備註/10項結果，儲存時逐欄位 diff 並寫入 `insp_inspection_edit_log`（欄位、修改前、修改後、修改人、時間），頁面下方顯示「修改紀錄」（同樣 admin-only，符合該表 RLS 只允許 admin 讀寫）。已於瀏覽器實測：建立測試案件與巡檢紀錄、編輯地點/備註/第1項結果、確認修改紀錄正確顯示三筆 diff。
+- **（2026-09-08）照片縮圖顯示**：`googleDrive.ts` 新增 `fetchDriveFileAsObjectUrl()`，沿用既有的前端 Drive OAuth token（不另外架設後端代理，因為巡檢系統本來就要求使用者啟用 Drive 授權才能上傳照片）。`InspectionDetailPage` 加上「顯示照片預覽」按鈕，抓取 `alt=media` 內容轉 blob URL 顯示縮圖網格。**UI 已確認正常渲染，但實際抓圖流程尚未實測**——需要真的透過巡檢填報精靈上傳過照片的紀錄才能驗證，Drive OAuth 的授權彈窗無法透過瀏覽器自動化觸發完成。
+- **（2026-09-08）補了兩個順便發現的既有問題**：
+  - `AdminProjectsPage` 新增案件時，date 欄位空字串會讓 Postgres insert 失敗（`22007`），但程式碼沒檢查 error，UI 會誤以為新增成功。已修正成把空字串轉 `null`，並把錯誤訊息顯示在畫面上（原本用 `alert()`，後改成 inline 訊息，避免瀏覽器自動化測試時被原生 dialog 卡住）。
+  - App 裡完全沒有登出功能。新增 `src/components/AppHeader.tsx`（顯示目前登入者 email/角色 + 登出連結），掛在 `ProtectedRoute` 上，所有已登入頁面都會顯示。
 
-### 待辦（下次接續建議順序）
+### 待辦
 
-1. **尚未實作**：巡檢紀錄修改時寫入 `insp_inspection_edit_log`（對應第13節要求），目前只有建立流程，沒有編輯既有紀錄的介面
-2. **尚未實作**：`InspectionDetailPage` 的照片縮圖顯示，目前只列檔名與上傳狀態；可以參考發文平台 `netlify/functions/drive-thumb.js` 的做法（尚未細看是否能直接沿用）
+目前 §13（單筆巡檢紀錄）與 §7.2 相關的原訂待辦事項已完成。剩下唯一沒有實測的部分：
+
+1. **照片縮圖的實際抓取流程**：需要在瀏覽器手動走一次巡檢填報精靈、啟用 Drive 授權、上傳至少一張照片送出，再到該筆紀錄的詳細頁點「顯示照片預覽」，確認縮圖能正確顯示（目前只確認了 UI 結構本身沒問題，沒有真的驗證 `fetchDriveFileAsObjectUrl` 抓圖流程）。
+
+### 已知殘留物（非阻塞，供之後想到時清理）
+
+- 2026-09-08 用瀏覽器自動化測試「編輯功能」時，走過一次完整送出流程（測試案件「測試案件-QA請忽略」＋一筆測試巡檢紀錄，簽名為隨手畫的線）。測試完成後已用 service role key 直接刪除 Supabase 裡的測試案件／巡檢紀錄／指派紀錄（含 cascade 的 items/photos/edit_log），確認無殘留資料列。
+- 但送出流程當時**已自動取得 Drive 授權**（Internal Workspace app 之前同意過，靜默核發，過程中沒跳出彈窗），因此在 Drive 根資料夾（13001 帳號）底下留下了一個 `測試案件-QA請忽略` 子資料夾，裡面只有一個測試簽名 PNG。這是純粹的測試殘留，沒有真實資料，需要手動去 Google Drive 刪除（進到根資料夾 → 找到 `測試案件-QA請忽略` 資料夾 → 刪除／移到垃圾桶）。
 
 ### 換到別的電腦時要注意
 

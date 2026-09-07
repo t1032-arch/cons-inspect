@@ -22,6 +22,7 @@ export function AdminProjectsPage() {
   const [form, setForm] = useState(emptyForm);
   const [newAssigneeEmail, setNewAssigneeEmail] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   async function loadProjects() {
     setLoading(true);
@@ -46,7 +47,16 @@ export function AdminProjectsPage() {
 
   async function handleCreate() {
     if (!form.project_name) return;
-    await supabase.from('insp_projects').insert({ ...form, status: 'active' });
+    setCreateError(null);
+    // 空字串對 date 欄位（start_date/end_date）是不合法的值，需轉成 null
+    const payload = Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [key, value === '' ? null : value]),
+    );
+    const { error } = await supabase.from('insp_projects').insert({ ...payload, status: 'active' });
+    if (error) {
+      setCreateError(error.message);
+      return;
+    }
     setForm(emptyForm);
     await loadProjects();
   }
@@ -93,6 +103,7 @@ export function AdminProjectsPage() {
         >
           新增案件
         </button>
+        {createError && <p className="mt-2 text-sm text-result-poor">新增失敗：{createError}</p>}
       </div>
 
       <div>

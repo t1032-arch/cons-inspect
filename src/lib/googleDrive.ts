@@ -138,3 +138,20 @@ export async function uploadFileToDrive(
   const data = await res.json();
   return data.id;
 }
+
+// 縮圖顯示：直接用已取得的 access token 呼叫 alt=media 抓圖片內容轉成 blob URL，
+// 不另外架設後端代理（發文平台的 drive-thumb.js 是因為它沒有前端 OAuth 授權流程；
+// 巡檢系統本來就要求使用者啟用 Drive 授權才能上傳照片，沿用同一個 token 即可）。
+// 照片在上傳前已依 §7.1 壓縮過，直接抓原檔當縮圖顯示不會過大。
+export async function fetchDriveFileAsObjectUrl(fileId: string): Promise<string> {
+  if (!accessToken) throw new Error('尚未取得 Drive 授權');
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) {
+    throw new Error(`Drive 縮圖讀取失敗 (${res.status}): ${await res.text()}`);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}

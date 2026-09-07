@@ -721,9 +721,9 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
 
 1. **套用 migration**：把 `supabase/migrations/0001_init.sql` 實際跑到 Supabase 專案（`djhlhhszcwlwovbwzxth`）上，用 Supabase CLI 或 Dashboard 的 SQL editor 皆可，目前完全還沒對正式資料庫執行過
 2. **建立第一位 admin**：第一位 admin 登入後，需手動在 `insp_user_roles` insert 一筆（沒有自我升級的介面，避免任何登入者自封管理者）
-3. **補齊 `.env` 剩下的空值**（`.env` 沒有進 git，換電腦要重新設定，且要重新複製 Supabase 的 key）：
-   - ~~`VITE_GOOGLE_CLIENT_ID`~~ **已完成（2026-09-07）**：用 t1032 帳號在 Google Cloud Console 新建專案 `cons-inspect`（獨立於發文平台的專案），OAuth consent screen 選 Internal，手動加上 `https://www.googleapis.com/auth/drive` scope（不在預設勾選清單中，要在「手動新增範圍」欄位貼上），建立 Web application 類型憑證，已確認 `http://localhost:5173` 已加入「已授權的 JavaScript 來源」
-   - `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`：由 **13001（總務主任）** 帳號建立根資料夾。**分享方式比照發文平台實際做法**：不需要逐一加入每個使用者的 email，而是把資料夾的一般存取權（General access）從「限制」改成「同網域內的使用者都可以編輯」，這樣任何用同網域 Workspace 帳號登入、取得 `drive` scope 授權的人都能寫入。建好後從網址列 `https://drive.google.com/drive/folders/<這段>` 取得 ID——**尚未完成**
+3. ~~**補齊 `.env` 空值**~~ **已完成（2026-09-07）**（`.env` 沒有進 git，換電腦要重新設定，且要重新複製 Supabase 的 key）：
+   - `VITE_GOOGLE_CLIENT_ID`：用 t1032 帳號在 Google Cloud Console 新建專案 `cons-inspect`（獨立於發文平台的專案），OAuth consent screen 選 Internal，手動加上 `https://www.googleapis.com/auth/drive` scope（不在預設勾選清單中，要在「手動新增範圍」欄位貼上），建立 Web application 類型憑證，已確認 `http://localhost:5173` 已加入「已授權的 JavaScript 來源」
+   - `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`：13001（總務主任）帳號建立根資料夾，一般存取權設成「同網域使用者皆可編輯」（比照發文平台實際做法，不需逐一加使用者），ID 已取得並填入 `.env`
 4. **尚未實作**：巡檢紀錄修改時寫入 `insp_inspection_edit_log`（對應第13節要求），目前只有建立流程，沒有編輯既有紀錄的介面
 5. **尚未實作**：`InspectionDetailPage` 的照片縮圖顯示，目前只列檔名與上傳狀態；可以參考發文平台 `netlify/functions/drive-thumb.js` 的做法（尚未細看是否能直接沿用）
 

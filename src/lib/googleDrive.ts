@@ -16,7 +16,9 @@ declare const google: any;
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 
-// 「施工巡檢」根資料夾固定建在 13001（總務主任）帳號底下，並分享給所有填報/管理人員（編輯權限）。
+// 「施工巡檢」根資料夾固定建在 13001（總務主任）帳號底下。分享方式比照發文平台驗證過的實際做法：
+// 不需要逐一加入每個使用者的 email，而是把資料夾的一般存取權設成「同網域使用者皆可編輯」，
+// 這樣任何用同網域 Workspace 帳號登入、取得 `drive` scope 授權的人就能寫入。
 // 不能讓程式在找不到根資料夾時退回建立在當下登入者自己的 My Drive（那樣不同人會各自長出一份，
 // 無法達成 §7.2 選用 `drive` scope 的目的：不同填報人共用同一案件資料夾）。
 // 取得方式：13001 帳號開啟該資料夾，網址列 https://drive.google.com/drive/folders/<這段就是 ID>

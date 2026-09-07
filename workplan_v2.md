@@ -715,20 +715,19 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
 - `src/lib/googleDrive.ts`：授權流程沿用發文平台驗證過的做法（scope=`drive`、不做靜默授權、hint email、tokenClient 每次 reset）；**巢狀資料夾結構是巡檢系統自己的設計**，發文平台實際上是單一固定 `FOLDER_ID` 扁平存檔（已讀取 `posts-management/src/drive.js` 原始碼確認）
 - `src/lib/imageCompression.ts`：完全依 §7.1 規格實作
 - `src/lib/offlineQueue.ts`、`submitInspection.ts`：IndexedDB 離線佇列，對應 §7.3
-- `supabase/migrations/0001_init.sql`：所有 `insp_` 前綴表 + RLS policies，**尚未實際套用到 Supabase 資料庫**
+- `supabase/migrations/0001_init.sql`：已在 Supabase Dashboard SQL Editor 執行完成，8 張 `insp_` 表與標案管理平台既有表並存於同一 schema，`insp_inspection_item_definitions` 10 筆種子資料已確認可透過 PostgREST 讀取
+- `.env` 的 `VITE_GOOGLE_CLIENT_ID`、`VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID` 皆已取得並填入：
+  - `VITE_GOOGLE_CLIENT_ID`：用 t1032 帳號在 Google Cloud Console 新建專案 `cons-inspect`（獨立於發文平台的專案），OAuth consent screen 選 Internal，手動加上 `https://www.googleapis.com/auth/drive` scope（不在預設勾選清單中，要在「手動新增範圍」欄位貼上），建立 Web application 類型憑證，已確認 `http://localhost:5173` 已加入「已授權的 JavaScript 來源」
+  - `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`：13001（總務主任）帳號建立根資料夾，一般存取權設成「同網域使用者皆可編輯」（比照發文平台實際做法，不需逐一加使用者）
 
 ### 待辦（下次接續建議順序）
 
-1. **套用 migration**：把 `supabase/migrations/0001_init.sql` 實際跑到 Supabase 專案（`djhlhhszcwlwovbwzxth`）上，用 Supabase CLI 或 Dashboard 的 SQL editor 皆可，目前完全還沒對正式資料庫執行過
-2. **建立第一位 admin**：第一位 admin 登入後，需手動在 `insp_user_roles` insert 一筆（沒有自我升級的介面，避免任何登入者自封管理者）
-3. ~~**補齊 `.env` 空值**~~ **已完成（2026-09-07）**（`.env` 沒有進 git，換電腦要重新設定，且要重新複製 Supabase 的 key）：
-   - `VITE_GOOGLE_CLIENT_ID`：用 t1032 帳號在 Google Cloud Console 新建專案 `cons-inspect`（獨立於發文平台的專案），OAuth consent screen 選 Internal，手動加上 `https://www.googleapis.com/auth/drive` scope（不在預設勾選清單中，要在「手動新增範圍」欄位貼上），建立 Web application 類型憑證，已確認 `http://localhost:5173` 已加入「已授權的 JavaScript 來源」
-   - `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`：13001（總務主任）帳號建立根資料夾，一般存取權設成「同網域使用者皆可編輯」（比照發文平台實際做法，不需逐一加使用者），ID 已取得並填入 `.env`
-4. **尚未實作**：巡檢紀錄修改時寫入 `insp_inspection_edit_log`（對應第13節要求），目前只有建立流程，沒有編輯既有紀錄的介面
-5. **尚未實作**：`InspectionDetailPage` 的照片縮圖顯示，目前只列檔名與上傳狀態；可以參考發文平台 `netlify/functions/drive-thumb.js` 的做法（尚未細看是否能直接沿用）
+1. **建立第一位 admin**：第一位 admin 登入後，需手動在 `insp_user_roles` insert 一筆（沒有自我升級的介面，避免任何登入者自封管理者）——**尚未完成**
+2. **尚未實作**：巡檢紀錄修改時寫入 `insp_inspection_edit_log`（對應第13節要求），目前只有建立流程，沒有編輯既有紀錄的介面
+3. **尚未實作**：`InspectionDetailPage` 的照片縮圖顯示，目前只列檔名與上傳狀態；可以參考發文平台 `netlify/functions/drive-thumb.js` 的做法（尚未細看是否能直接沿用）
 
 ### 換到別的電腦時要注意
 
 - git repo（本文件、程式碼、migration SQL）會同步過去，直接 `git clone` 或 `git pull` 即可接續
-- `.env` **不會**跟著 git 走（故意排除，因為裡面有 Supabase service role key），換電腦要手動建立 `.env`，把 Supabase 的 URL/anon key/service role key，以及上面第3點的兩個 Google 值填進去
+- `.env` **不會**跟著 git 走（故意排除，因為裡面有 Supabase service role key），換電腦要手動建立 `.env`，把 Supabase 的 URL/anon key/service role key，以及上面「已完成」列表中的兩個 Google 值填進去
 - Claude 的本機記憶（memory）是綁在單一電腦上的，換電腦後 Claude 不會自動記得這次對話中討論過的決策細節——但只要這份文件與程式碼註解夠完整（已盡量寫進去了），接續時不需要重新對話確認這些已拍板的設計決策

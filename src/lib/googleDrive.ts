@@ -10,7 +10,12 @@
 declare const google: any;
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
-const ROOT_FOLDER_NAME = '施工巡檢';
+
+// 「施工巡檢」根資料夾固定建在 13001（總務主任）帳號底下，並分享給所有填報/管理人員（編輯權限）。
+// 不能讓程式在找不到根資料夾時退回建立在當下登入者自己的 My Drive（那樣不同人會各自長出一份，
+// 無法達成 §7.2 選用 `drive` scope 的目的：不同填報人共用同一案件資料夾）。
+// 取得方式：13001 帳號開啟該資料夾，網址列 https://drive.google.com/drive/folders/<這段就是 ID>
+const ROOT_FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID;
 
 let tokenClient: any = null;
 let accessToken: string | null = null;
@@ -39,56 +44,65 @@ export function requestDriveAccess(userEmail: string): Promise<string> {
   });
 }
 
+// supportsAllDrives / includeItemsFromAllDrives：若日後根資料夾改放到 Workspace 共用雲端硬碟
+// 也能正常運作，一般個人資料夾加這兩個參數沒有副作用
 async function driveFetch(path: string, init: RequestInit = {}) {
   if (!accessToken) throw new Error('尚未取得 Drive 授權');
-  const res = await fetch(`https://www.googleapis.com/drive/v3/${path}`, {
-    ...init,
-    headers: {
-      ...init.headers,
-      Authorization: `Bearer ${accessToken}`,
+  const separator = path.includes('?') ? '&' : '?';
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/${path}${separator}supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    {
+      ...init,
+      headers: {
+        ...init.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
     },
-  });
+  );
   if (!res.ok) {
     throw new Error(`Drive API 錯誤 (${res.status}): ${await res.text()}`);
   }
   return res.json();
 }
 
-async function findFolder(name: string, parentId: string | null): Promise<string | null> {
-  const parentClause = parentId ? `'${parentId}' in parents` : `'root' in parents`;
+async function findFolder(name: string, parentId: string): Promise<string | null> {
   const q = encodeURIComponent(
-    `name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and ${parentClause}`,
+    `name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`,
   );
   const data = await driveFetch(`files?q=${q}&fields=files(id,name)`);
   return data.files?.[0]?.id ?? null;
 }
 
-async function createFolder(name: string, parentId: string | null): Promise<string> {
+async function createFolder(name: string, parentId: string): Promise<string> {
   const data = await driveFetch('files?fields=id', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name,
       mimeType: 'application/vnd.google-apps.folder',
-      parents: parentId ? [parentId] : undefined,
+      parents: [parentId],
     }),
   });
   return data.id;
 }
 
-async function ensureFolder(name: string, parentId: string | null): Promise<string> {
+async function ensureFolder(name: string, parentId: string): Promise<string> {
   const existing = await findFolder(name, parentId);
   if (existing) return existing;
   return createFolder(name, parentId);
 }
 
-// 對應資料夾結構：施工巡檢/案件A/2026-09-07_巡檢紀錄001/
+// 對應資料夾結構：（ROOT_FOLDER_ID）/案件A/2026-09-07_巡檢紀錄001/
 export async function ensureInspectionFolder(
   projectName: string,
   inspectionFolderName: string,
 ): Promise<string> {
-  const rootId = await ensureFolder(ROOT_FOLDER_NAME, null);
-  const projectFolderId = await ensureFolder(projectName, rootId);
+  if (!ROOT_FOLDER_ID) {
+    throw new Error(
+      '尚未設定 VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID：需要 13001 帳號提供已分享的根資料夾 ID',
+    );
+  }
+  const projectFolderId = await ensureFolder(projectName, ROOT_FOLDER_ID);
   return ensureFolder(inspectionFolderName, projectFolderId);
 }
 

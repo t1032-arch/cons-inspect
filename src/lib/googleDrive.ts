@@ -1,10 +1,15 @@
-// Google Drive 串接，沿用「發文平台」既有驗證過的做法，見 workplan_v2.md §7.2
+// Google Drive 串接，見 workplan_v2.md §7.2
 //
+// 沿用發文平台（posts-management/src/drive.js）驗證過的授權流程：
 // - OAuth scope 使用 `drive`（不是 `drive.file`）：巡檢照片跨使用者共用資料夾，
 //   drive.file 無法存取非本應用建立的檔案
 // - 不做靜默授權：頁面載入不自動要 token，需使用者主動點擊「啟用照片功能」才 requestAccessToken
 // - requestAccessToken 帶 hint: user.email，避免授權到錯誤的 Google 帳號
 // - tokenClient 每次 GIS callback 後重置為 null，確保 picker 可重新開啟
+//
+// 資料夾結構是巡檢系統自己的設計，非沿用發文平台：發文平台把所有檔案都丟進單一固定
+// FOLDER_ID（扁平結構，用檔名區分）；巡檢系統的照片量較大，需要依「案件／巡檢紀錄」
+// 分開資料夾方便查閱，因此在固定根資料夾下動態建立巢狀子資料夾。
 
 // Google Identity Services 由 index.html 的 <script> 標籤全域載入，沒有官方型別套件
 declare const google: any;

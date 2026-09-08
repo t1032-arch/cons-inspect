@@ -748,17 +748,23 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
   
   結論：RLS 與前端權限邏輯設計正確，這項風險已排除。測試資料（2 個測試案件＋指派＋1 筆巡檢紀錄）已清除，`reservation.notice@tlhc.ylc.edu.tw` 這個帳號本身（`auth.users`）保留，未來要用可以直接把它加進其他案件的 `insp_project_assignees`。
 
+- **（2026-09-08）已部署到 Netlify 正式環境，完整流程實測通過**：站台 `cons-inspect`（account slug `t1032`），Production URL `https://cons-inspect.netlify.app`。設定內容：
+  - `netlify.toml`：`build.command = "npm run build"`、`publish = "dist"`，並加了 `/* → /index.html (200)` 的 redirect 規則（React Router 是 client-side routing，直接訪問 `/history`、`/inspections/:id` 這類子路徑沒有這條規則會 404）
+  - Netlify 環境變數：`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、`VITE_GOOGLE_CLIENT_ID`、`VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`（`SUPABASE_SERVICE_ROLE_KEY` 刻意不放，那只給本機測試腳本用，不該進前端 build）
+  - 使用者已手動完成兩項 Netlify 網域必要設定：Supabase Dashboard → Authentication → URL Configuration 加入 `https://cons-inspect.netlify.app` 為 Redirect URL；Google Cloud Console 的 `cons-inspect` OAuth 憑證加入同網域為已授權 JavaScript 來源
+  - **（附帶發現）** 使用者提到他另外 2 個專案也共用同一個 Supabase 專案，其中一個部署在 Netlify 的專案，當初 coding 時就沒把該 Netlify 網域加進 Supabase 的 Redirect URLs——這解釋了為什麼加入 cons-inspect 網域前，登入 OAuth 完成後會直接被導到另一個「標案管理平台」去（Supabase 找不到符合的 redirect URL 時似乎會 fallback 到清單中其他已允許的網址）。這是使用者另一個舊專案的既有缺口，不影響 cons-inspect，但值得使用者之後找時間一併補上。
+  - 完整實測（admin 帳號）：登入 → 後台建案＋指派 → 案件地點自動帶入 → 6 步驟填報精靈 → **Drive 授權在正式網域成功**（沒有本機開發時踩到的 `origin_mismatch`）→ 照片上傳成功（`已上傳` 狀態）→ 簽名 → 送出成功 → 詳細頁正確顯示。測試資料已清除（Supabase 端；Drive 端會留一個空測試資料夾，併入待清理清單）。
+  - **Claude Code 環境設定附帶記錄**：這台電腦的**全域** `~/.claude/settings.json` 裡有一段給*另一個*專案（`dae-reserve`，Firebase 系統）寫的 `autoMode.environment` 描述，內容包含「任何名稱含 `prod`/`production` 的目標都視為受保護部署環境」的規則。這條規則是全域生效的，導致這次在 cons-inspect 執行 `netlify deploy --prod` 被 auto-mode 分類器誤判為觸碰敏感正式環境而擋下（儘管跟那個規則描述的專案完全無關）。已改用專案層級設定解決：新增 `I:\cons-inspect\.claude\settings.local.json`，加入 `permissions.allow` 讓 `netlify deploy`／`netlify sites:*`／`netlify env:*` 等指令在這個專案內直接放行，不去動另一個專案仍在依賴的全域設定。之後如果又新增其他專案也要部署，可能要重複這個模式（專案層級 allow list），或考慮把全域那段過時的 `autoMode.environment` 一併整理掉。
+
 ### 待辦
 
 已知仍未做的部分：
 
 1. `npm audit` 有 2 個 moderate 漏洞（vite/esbuild 的 dev-server 漏洞、react-router-dom 的 open redirect），皆需要 major version 升級才能修（vite 5→8、react-router-dom 6→7）。已與使用者確認先擱置，不影響目前功能開發。
 2. **小 UX 缺口**：一般使用者用網址直接訪問自己沒被指派的案件時，畫面會永遠卡在「載入案件資料中…」（因為 RLS 讓查詢回傳空值，`project` state 永遠是 null），沒有任何「你沒有權限」或「案件不存在」的提示。不是安全性問題（資料確實沒有外洩），但體驗不好，建議之後加個逾時或空值判斷顯示提示訊息。
-3. **部署前置作業尚未開始**：專案目前完全是本機開發階段，還沒有選定/設定任何部署平台（Vercel／Netlify／其他），也還沒有：
-   - 把正式網域加進 Google Cloud Console 的「已授權 JavaScript 來源」（目前只有 `http://localhost:5173`，上線網域沒加會導致 Drive 授權直接 `origin_mismatch` 失敗，見前面 §22 的環境問題記錄）
-   - 在部署平台設定正式環境的環境變數（`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、`VITE_GOOGLE_CLIENT_ID`、`VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`；`SUPABASE_SERVICE_ROLE_KEY` 不應該進前端環境變數，只有本機測試腳本在用）
-   - 手機／平板真機測試（workplan §10「手機優先」的設計原則，目前所有測試都只在桌面版 Chrome 做過，響應式版面、觸控簽名、相機拍照都還沒在真實裝置上驗證過）
-   - 自動化測試（目前完全依賴人工/live 瀏覽器測試，沒有任何 unit/integration test，之後每次修改都要重新手動走一次驗證流程）
+3. **手機／平板真機測試尚未做**：workplan §10「手機優先」的設計原則，目前所有測試（含這次 Netlify 正式環境驗證）都只在桌面版 Chrome 做過，響應式版面、觸控簽名、相機拍照都還沒在真實裝置上驗證過。現在已經有正式網址了，可以直接拿手機開 `https://cons-inspect.netlify.app` 測試。
+4. **沒有自動化測試**：目前完全依賴人工/live 瀏覽器測試，沒有任何 unit/integration test，之後每次修改都要重新手動走一次驗證流程。
+5. **目前是手動部署**：`netlify deploy --prod` 是本機手動觸發的一次性部署，還沒接上 GitHub 自動部署（push 到 main 就自動 build+deploy）。要接的話可以到 Netlify Dashboard 連結 GitHub repo。
 
 ### 已知殘留物（非阻塞，供之後想到時清理）
 

@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# React Router 用 client-side routing，直接訪問 /history、/inspections/:id 這類子路徑時
+# 需要 Netlify 一律回傳 index.html，交給前端路由處理，否則會 404
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

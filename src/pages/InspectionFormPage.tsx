@@ -6,7 +6,12 @@ import { INSPECTION_ITEM_DEFINITIONS } from '@/constants/inspectionItems';
 import { InspectionItemCard } from '@/components/InspectionItemCard';
 import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad';
 import { compressImage } from '@/lib/imageCompression';
-import { queuePhoto } from '@/lib/offlineQueue';
+import {
+  queuePhoto,
+  saveDraftInspection,
+  getDraftInspection,
+  deleteDraftInspection,
+} from '@/lib/offlineQueue';
 import { requestDriveAccess, isDriveEnabled } from '@/lib/googleDrive';
 import { submitInspection, type BasicInfo } from '@/lib/submitInspection';
 import type { InspProject, InspectionResult } from '@/types';
@@ -47,6 +52,9 @@ export function InspectionFormPage() {
 
   const signatureHandle = useRef<SignaturePadHandle | null>(null);
   const inspectionLocalId = useMemo(() => `draft-${projectId}`, [projectId]);
+  // 草稿是否已嘗試還原過（不論有沒有還原到東西），還原完成前不能讓下面的自動存檔
+  // effect 把預設空白狀態寫回去蓋掉尚未載入的草稿
+  const draftRestoredRef = useRef(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -55,8 +63,39 @@ export function InspectionFormPage() {
       .select('*')
       .eq('id', projectId)
       .single()
-      .then(({ data }) => setProject(data));
+      .then(({ data }) => {
+        setProject(data);
+        // 帶入案件地點作為預設值，使用者仍可自行修改；若已輸入過則不覆蓋
+        if (data?.location) {
+          setBasicInfo((prev) => (prev.location ? prev : { ...prev, location: data.location }));
+        }
+      });
   }, [projectId]);
+
+  // 對應 workplan_v2.md §7.3：巡檢表單資料先寫入本機暫存，避免填到一半斷線／
+  // 重新整理遺失。頁面載入時嘗試還原草稿，之後每次變更都存回 IndexedDB。
+  useEffect(() => {
+    draftRestoredRef.current = false;
+    getDraftInspection(inspectionLocalId).then((draft) => {
+      const formData = draft?.formData as
+        | { basicInfo?: BasicInfo; items?: Record<number, InspectionResult>; note?: string }
+        | undefined;
+      if (formData?.basicInfo) setBasicInfo(formData.basicInfo);
+      if (formData?.items) setItems(formData.items);
+      if (typeof formData?.note === 'string') setNote(formData.note);
+      draftRestoredRef.current = true;
+    });
+  }, [inspectionLocalId]);
+
+  useEffect(() => {
+    if (!draftRestoredRef.current) return;
+    saveDraftInspection({
+      localId: inspectionLocalId,
+      projectId: projectId ?? '',
+      formData: { basicInfo, items, note },
+      updatedAt: Date.now(),
+    });
+  }, [inspectionLocalId, projectId, basicInfo, items, note]);
 
   const step = STEPS[stepIndex];
 
@@ -127,6 +166,7 @@ export function InspectionFormPage() {
         signatureBlob,
       });
 
+      await deleteDraftInspection(inspectionLocalId);
       navigate(`/inspections/${inspectionId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '送出失敗，請稍後再試');

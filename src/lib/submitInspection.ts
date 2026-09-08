@@ -49,13 +49,19 @@ export async function submitInspection({
 
   const folderName = `${basicInfo.inspection_date}_巡檢紀錄${inspectionId.slice(0, 8)}`;
 
+  // 簽名上傳失敗（例如網路不穩）不應阻擋整筆送出：紀錄與10項結果已寫入，
+  // 簽名留空即可，比照照片「不因單張上傳失敗而整筆失敗」的原則（§7.3）
   if (signatureBlob && isDriveEnabled()) {
-    const folderId = await ensureInspectionFolder(projectName, folderName);
-    const signatureFileId = await uploadFileToDrive(signatureBlob, 'signature.png', folderId);
-    await supabase
-      .from('insp_inspections')
-      .update({ signature_file_id: signatureFileId })
-      .eq('id', inspectionId);
+    try {
+      const folderId = await ensureInspectionFolder(projectName, folderName);
+      const signatureFileId = await uploadFileToDrive(signatureBlob, 'signature.png', folderId);
+      await supabase
+        .from('insp_inspections')
+        .update({ signature_file_id: signatureFileId })
+        .eq('id', inspectionId);
+    } catch {
+      // 簽名上傳失敗，signature_file_id 維持 null，不中斷後續照片處理
+    }
   }
 
   // 照片先在資料庫建立 pending 紀錄（一次性），UI 可依 upload_status 顯示「上傳中」；

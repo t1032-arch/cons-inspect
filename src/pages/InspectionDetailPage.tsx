@@ -45,6 +45,7 @@ export function InspectionDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<InspectionEditForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
@@ -116,11 +117,13 @@ export function InspectionDetailPage() {
     if (!data) return;
     setEditForm(toEditForm(data));
     setIsEditing(true);
+    setSaveError(null);
   }
 
   function cancelEditing() {
     setIsEditing(false);
     setEditForm(null);
+    setSaveError(null);
   }
 
   async function handleShowThumbnails() {
@@ -151,10 +154,24 @@ export function InspectionDetailPage() {
   async function handleSave() {
     if (!data || !editForm || !user) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await saveInspectionEdits(data.inspection, data.items, editForm, user.id);
       setIsEditing(false);
       setEditForm(null);
+      await load();
+      if (role === 'admin') {
+        const { data: logs } = await supabase
+          .from('insp_inspection_edit_log')
+          .select('*')
+          .eq('inspection_id', id)
+          .order('edited_at', { ascending: false });
+        setEditLogs(logs ?? []);
+      }
+    } catch (err) {
+      // 部分欄位／項目可能已寫入成功（見 editInspection.ts 的逐項寫入設計），
+      // 重新載入讓 data 反映實際已生效的異動，避免下次重試時用舊資料重複比對、重複寫入 log
+      setSaveError(err instanceof Error ? err.message : '儲存失敗，請稍後再試');
       await load();
       if (role === 'admin') {
         const { data: logs } = await supabase
@@ -295,23 +312,30 @@ export function InspectionDetailPage() {
       </div>
 
       {isEditing && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-          >
-            {saving ? '儲存中…' : '儲存修改'}
-          </button>
-          <button
-            type="button"
-            onClick={cancelEditing}
-            disabled={saving}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
-          >
-            取消
-          </button>
+        <div className="space-y-2">
+          {saveError && (
+            <p className="text-sm text-result-poor">
+              儲存失敗：{saveError}（已成功的部分已儲存並留下修改紀錄，可重試尚未成功的部分）
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+            >
+              {saving ? '儲存中…' : '儲存修改'}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditing}
+              disabled={saving}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+            >
+              取消
+            </button>
+          </div>
         </div>
       )}
 

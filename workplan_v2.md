@@ -725,17 +725,31 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
 - **（2026-09-08）補了兩個順便發現的既有問題**：
   - `AdminProjectsPage` 新增案件時，date 欄位空字串會讓 Postgres insert 失敗（`22007`），但程式碼沒檢查 error，UI 會誤以為新增成功。已修正成把空字串轉 `null`，並把錯誤訊息顯示在畫面上（原本用 `alert()`，後改成 inline 訊息，避免瀏覽器自動化測試時被原生 dialog 卡住）。
   - App 裡完全沒有登出功能。新增 `src/components/AppHeader.tsx`（顯示目前登入者 email/角色 + 登出連結），掛在 `ProtectedRoute` 上，所有已登入頁面都會顯示。
+- **（2026-09-08，換到另一台電腦接續）照片縮圖抓取流程 — 已實測通過**：走完整填報精靈、上傳 4 張照片、送出後在詳細頁點「顯示照片預覽」，4 張皆正確從 Drive 抓取顯示。§13/§7.2 原訂待辦已無殘留項目。
+  - 過程中發現並修正一個環境問題（非程式碼 bug）：dev server 若跑在非 5173 的 port（例如 5173 被殘留 process 占用而改用 5174），Google OAuth 會回傳 `origin_mismatch`（因為 Google Cloud Console 的「已授權 JavaScript 來源」只登記了 `http://localhost:5173`）。換電腦或重啟環境時要注意確保 dev server 跑在 5173，否則 Drive 授權會直接失敗。
+- **（2026-09-08）巡檢紀錄查詢頁篩選功能 — 已實測通過**：`HistoryPage` 的「只顯示有『不良』的紀錄」checkbox 篩選邏輯正確（`rows.filter(r => r.poor_count > 0)`），雙向切換皆正確篩入/篩出。這是 §19 MVP 清單第 11 項此前從未實測過的部分。
+- **（2026-09-08）修正離線佇列的重大缺陷**：`submitInspection.ts` 原本簽名上傳（`uploadFileToDrive` for signature）沒有包 try/catch，一旦網路失敗會直接 throw，導致：(1) `insp_inspections`／`insp_inspection_items` 已寫入但整筆送出「看起來」失敗，產生沒有照片、沒有簽名的孤兒紀錄；(2) 使用者若依畫面提示重新點擊送出，會建立**新的重複紀錄**而非續傳，因為送出邏輯每次都是全新 insert。已修正為 try/catch 吞掉錯誤、`signature_file_id` 留空並繼續處理照片，比照片既有的容錯精神一致（§7.3）。已用模擬 Drive fetch 失敗的方式實測驗證：修復前重試 2 次產生 2 筆孤兒重複紀錄；修復後同樣情境只產生 1 筆完整紀錄（簽名留空、照片正確標記 `failed`）。**目前規模下未額外加簽名重試佇列或 idempotency 機制**（範圍已與使用者確認），僅止於不阻擋整筆送出。
+- **（2026-09-08）新增：案件地點自動帶入巡檢表單**：`InspectionFormPage.tsx` 讀取案件資料後，若 `insp_projects.location` 有值且使用者尚未輸入過巡檢地點，自動帶入該案件地點，欄位仍可自由編輯覆蓋。後台新增案件表單本來就已有 `location` 欄位（optional），不需額外修改。已實測：建立案件時填地點「E棟頂樓水塔」，開始巡檢後「巡檢地點」欄位自動帶入且可編輯。
 
 ### 待辦
 
-目前 §13（單筆巡檢紀錄）與 §7.2 相關的原訂待辦事項已完成。剩下唯一沒有實測的部分：
+目前 §13（單筆巡檢紀錄）、§7.2（照片縮圖）、§19 第 11 項（查詢頁篩選）相關的原訂待辦事項均已完成並實測通過。
 
-1. **照片縮圖的實際抓取流程**：需要在瀏覽器手動走一次巡檢填報精靈、啟用 Drive 授權、上傳至少一張照片送出，再到該筆紀錄的詳細頁點「顯示照片預覽」，確認縮圖能正確顯示（目前只確認了 UI 結構本身沒問題，沒有真的驗證 `fetchDriveFileAsObjectUrl` 抓圖流程）。
+- **（2026-09-08）§7.3 表單草稿本機暫存 — 已實作並實測通過**：`InspectionFormPage.tsx` 新增兩個 effect：頁面載入時呼叫 `getDraftInspection(draft-${projectId})` 還原 `basicInfo`／`items`／`note`（用 `draftRestoredRef` 擋掉還原完成前的自動存檔，避免用初始空白狀態蓋掉尚未讀出的草稿）；之後這三個 state 只要變動就呼叫 `saveDraftInspection` 存回 IndexedDB；送出成功後呼叫 `deleteDraftInspection` 清掉草稿。實測：填地點/人員/前3項良好後直接重新整理頁面，還原正確；完整送出成功後直接查 IndexedDB 確認草稿已清除（`undefined`）。案件地點自動帶入與這個草稿還原的互動：兩者都用「若目前是空的才填入」的判斷式，不會互相蓋掉。
+- **（2026-09-08）`editInspection.ts` 的 edit_log 寫入時機 — 已修正並實測通過**：原本所有欄位／項目的異動全部更新完才一次寫入 `insp_inspection_edit_log`，若中途（例如第 2 項）更新失敗，前面已經生效的異動（地點、第 1 項）會完全沒有留下任何修改紀錄，直接違反這個功能「避免直接覆寫而無紀錄」的目的。已修正為每完成一項異動就立刻寫入對應的 log（欄位異動視為一組原子更新＋一次 log insert；每個項目各自更新＋各自 log insert）。用模擬 fetch 失敗的方式實測：第 2 項故意失敗時，地點與第 1 項確認已更新且各有 1 筆 log（共 2 筆，無缺漏）；第 2 項維持原值、無孤兒 log。
+- **（2026-09-08）`InspectionDetailPage.tsx` 的 `handleSave` 完全沒有 catch 區塊 — 已修正並實測通過**：上面這個 edit_log 順序問題原本更嚴重的地方在於，儲存失敗時使用者畫面上完全沒有任何錯誤提示（`handleSave` 只有 try/finally，沒有 catch，例外直接變成 unhandled rejection），而且因為失敗後 `data`／`editForm` 都沒有重新整理，使用者若重新點「儲存修改」，`saveInspectionEdits` 會拿舊的（未反映部分成功異動的）`data.inspection` 去跟 `editForm` 做 diff，導致已經成功的欄位被重複偵測成「有差異」而重複更新、重複寫入 log。已修正：新增 `saveError` state 並在按鈕旁顯示錯誤訊息；catch 區塊內也呼叫 `load()`／重新查 `editLogs`，讓 `data` 反映實際已生效的異動，這樣重試時只會處理真正還沒成功的部分，不會產生重複 log。用模擬第 3 項失敗＋重試成功的方式實測：錯誤訊息正確顯示、最終 4 筆真實異動（地點＋3項）對應剛好 4 筆 log，無重複。
+
+### 待辦
+
+已知仍未做的部分：
+
+1. `npm audit` 有 2 個 moderate 漏洞（vite/esbuild 的 dev-server 漏洞、react-router-dom 的 open redirect），皆需要 major version 升級才能修（vite 5→8、react-router-dom 6→7）。已與使用者確認先擱置，不影響目前功能開發。
 
 ### 已知殘留物（非阻塞，供之後想到時清理）
 
-- 2026-09-08 用瀏覽器自動化測試「編輯功能」時，走過一次完整送出流程（測試案件「測試案件-QA請忽略」＋一筆測試巡檢紀錄，簽名為隨手畫的線）。測試完成後已用 service role key 直接刪除 Supabase 裡的測試案件／巡檢紀錄／指派紀錄（含 cascade 的 items/photos/edit_log），確認無殘留資料列。
-- 但送出流程當時**已自動取得 Drive 授權**（Internal Workspace app 之前同意過，靜默核發，過程中沒跳出彈窗），因此在 Drive 根資料夾（13001 帳號）底下留下了一個 `測試案件-QA請忽略` 子資料夾，裡面只有一個測試簽名 PNG。這是純粹的測試殘留，沒有真實資料，需要手動去 Google Drive 刪除（進到根資料夾 → 找到 `測試案件-QA請忽略` 資料夾 → 刪除／移到垃圾桶）。
+- 2026-09-08（前次）用瀏覽器自動化測試「編輯功能」時的殘留：Drive 根資料夾（13001 帳號）下 `測試案件-QA請忽略` 子資料夾（僅一張測試簽名 PNG）。
+- 2026-09-08（本次，換電腦接續）測試照片縮圖與離線佇列時，Drive 根資料夾下又新增了 2-3 個空的測試子資料夾（`測試案件-照片測試-QA請忽略`、以及離線佇列測試留下的匿名巡檢紀錄資料夾）。
+- 以上皆為純測試殘留、無真實資料，Supabase 端已用 service role key 全部清除乾淨（案件/巡檢紀錄/指派紀錄，含 cascade 的 items/photos/edit_log），只有 Drive 端的空資料夾需要手動去根資料夾清理。
 
 ### 換到別的電腦時要注意
 

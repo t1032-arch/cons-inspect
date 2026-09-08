@@ -738,12 +738,27 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
 - **（2026-09-08）§7.3 表單草稿本機暫存 — 已實作並實測通過**：`InspectionFormPage.tsx` 新增兩個 effect：頁面載入時呼叫 `getDraftInspection(draft-${projectId})` 還原 `basicInfo`／`items`／`note`（用 `draftRestoredRef` 擋掉還原完成前的自動存檔，避免用初始空白狀態蓋掉尚未讀出的草稿）；之後這三個 state 只要變動就呼叫 `saveDraftInspection` 存回 IndexedDB；送出成功後呼叫 `deleteDraftInspection` 清掉草稿。實測：填地點/人員/前3項良好後直接重新整理頁面，還原正確；完整送出成功後直接查 IndexedDB 確認草稿已清除（`undefined`）。案件地點自動帶入與這個草稿還原的互動：兩者都用「若目前是空的才填入」的判斷式，不會互相蓋掉。
 - **（2026-09-08）`editInspection.ts` 的 edit_log 寫入時機 — 已修正並實測通過**：原本所有欄位／項目的異動全部更新完才一次寫入 `insp_inspection_edit_log`，若中途（例如第 2 項）更新失敗，前面已經生效的異動（地點、第 1 項）會完全沒有留下任何修改紀錄，直接違反這個功能「避免直接覆寫而無紀錄」的目的。已修正為每完成一項異動就立刻寫入對應的 log（欄位異動視為一組原子更新＋一次 log insert；每個項目各自更新＋各自 log insert）。用模擬 fetch 失敗的方式實測：第 2 項故意失敗時，地點與第 1 項確認已更新且各有 1 筆 log（共 2 筆，無缺漏）；第 2 項維持原值、無孤兒 log。
 - **（2026-09-08）`InspectionDetailPage.tsx` 的 `handleSave` 完全沒有 catch 區塊 — 已修正並實測通過**：上面這個 edit_log 順序問題原本更嚴重的地方在於，儲存失敗時使用者畫面上完全沒有任何錯誤提示（`handleSave` 只有 try/finally，沒有 catch，例外直接變成 unhandled rejection），而且因為失敗後 `data`／`editForm` 都沒有重新整理，使用者若重新點「儲存修改」，`saveInspectionEdits` 會拿舊的（未反映部分成功異動的）`data.inspection` 去跟 `editForm` 做 diff，導致已經成功的欄位被重複偵測成「有差異」而重複更新、重複寫入 log。已修正：新增 `saveError` state 並在按鈕旁顯示錯誤訊息；catch 區塊內也呼叫 `load()`／重新查 `editLogs`，讓 `data` 反映實際已生效的異動，這樣重試時只會處理真正還沒成功的部分，不會產生重複 log。用模擬第 3 項失敗＋重試成功的方式實測：錯誤訊息正確顯示、最終 4 筆真實異動（地點＋3項）對應剛好 4 筆 log，無重複。
+- **（2026-09-08）一般使用者（user）角色權限 — 首次實測，全部通過**：此前整個專案（含前次 session）所有測試都是用 admin 帳號（`insp_is_admin()` 直接放行全部操作），一般使用者的 RLS policy（`insp_projects_assignee_select`／`insp_inspections_assignee_select`／`insp_inspections_assignee_insert` 等）從未被真正驗證過，是上線前最大的未知風險。這次用第三個真實學校帳號（`reservation.notice@tlhc.ylc.edu.tw`，先登入一次讓 `auth.users` 建立紀錄，再用 service role key 建案件＋指派）實測：
+  - 案件選擇頁只顯示被指派的 active 案件，未指派的完全不出現
+  - 直接用網址訪問未指派案件的 `/projects/:id/inspect`，RLS 正確擋下（`project` 永遠拿不到資料，卡在載入畫面，沒有資料外洩，但也沒有「無權限」提示，是可以之後改善的 UX 小問題，非安全性問題）
+  - 被指派案件可正常走完填報精靈並成功送出（驗證 `insp_inspections_assignee_insert` 等 insert policy 正確）
+  - 紀錄詳細頁沒有「編輯」按鈕、也看不到修改紀錄區塊
+  - 歷史紀錄頁只顯示權限範圍內的紀錄
+  - 直接用網址訪問 `/admin/projects`，被前端路由導回首頁，沒有被 admin 專屬功能卡住或看到後台
+  
+  結論：RLS 與前端權限邏輯設計正確，這項風險已排除。測試資料（2 個測試案件＋指派＋1 筆巡檢紀錄）已清除，`reservation.notice@tlhc.ylc.edu.tw` 這個帳號本身（`auth.users`）保留，未來要用可以直接把它加進其他案件的 `insp_project_assignees`。
 
 ### 待辦
 
 已知仍未做的部分：
 
 1. `npm audit` 有 2 個 moderate 漏洞（vite/esbuild 的 dev-server 漏洞、react-router-dom 的 open redirect），皆需要 major version 升級才能修（vite 5→8、react-router-dom 6→7）。已與使用者確認先擱置，不影響目前功能開發。
+2. **小 UX 缺口**：一般使用者用網址直接訪問自己沒被指派的案件時，畫面會永遠卡在「載入案件資料中…」（因為 RLS 讓查詢回傳空值，`project` state 永遠是 null），沒有任何「你沒有權限」或「案件不存在」的提示。不是安全性問題（資料確實沒有外洩），但體驗不好，建議之後加個逾時或空值判斷顯示提示訊息。
+3. **部署前置作業尚未開始**：專案目前完全是本機開發階段，還沒有選定/設定任何部署平台（Vercel／Netlify／其他），也還沒有：
+   - 把正式網域加進 Google Cloud Console 的「已授權 JavaScript 來源」（目前只有 `http://localhost:5173`，上線網域沒加會導致 Drive 授權直接 `origin_mismatch` 失敗，見前面 §22 的環境問題記錄）
+   - 在部署平台設定正式環境的環境變數（`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、`VITE_GOOGLE_CLIENT_ID`、`VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`；`SUPABASE_SERVICE_ROLE_KEY` 不應該進前端環境變數，只有本機測試腳本在用）
+   - 手機／平板真機測試（workplan §10「手機優先」的設計原則，目前所有測試都只在桌面版 Chrome 做過，響應式版面、觸控簽名、相機拍照都還沒在真實裝置上驗證過）
+   - 自動化測試（目前完全依賴人工/live 瀏覽器測試，沒有任何 unit/integration test，之後每次修改都要重新手動走一次驗證流程）
 
 ### 已知殘留物（非阻塞，供之後想到時清理）
 

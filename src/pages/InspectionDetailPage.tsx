@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { INSPECTION_ITEM_DEFINITIONS, RESULT_LABELS } from '@/constants/inspectionItems';
 import { saveInspectionEdits, type InspectionEditForm } from '@/lib/editInspection';
 import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@/lib/googleDrive';
+import { generateInspectionPdf } from '@/lib/reports/generateInspectionPdf';
 import type {
   InspInspection,
   InspInspectionEditLog,
@@ -49,6 +50,8 @@ export function InspectionDetailPage() {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   async function load() {
     if (!id) return;
@@ -151,6 +154,19 @@ export function InspectionDetailPage() {
     }
   }
 
+  async function handleGenerateReport() {
+    if (!data || !user?.email) return;
+    setReportError(null);
+    setGeneratingReport(true);
+    try {
+      await generateInspectionPdf(data, user.email);
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : '報表產生失敗');
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
   async function handleSave() {
     if (!data || !editForm || !user) return;
     setSaving(true);
@@ -228,16 +244,29 @@ export function InspectionDetailPage() {
           )}
         </div>
 
-        {role === 'admin' && !isEditing && (
-          <button
-            type="button"
-            onClick={startEditing}
-            className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-          >
-            編輯
-          </button>
+        {!isEditing && (
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+            >
+              {generatingReport ? '產生中…' : '產生報表 PDF'}
+            </button>
+            {role === 'admin' && (
+              <button
+                type="button"
+                onClick={startEditing}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+              >
+                編輯
+              </button>
+            )}
+          </div>
         )}
       </div>
+      {reportError && <p className="text-sm text-result-poor">報表產生失敗：{reportError}</p>}
 
       <div>
         <h2 className="mb-2 font-semibold">巡檢結果</h2>

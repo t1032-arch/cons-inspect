@@ -765,6 +765,7 @@ Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working
 3. **手機／平板真機測試尚未做**：workplan §10「手機優先」的設計原則，目前所有測試（含這次 Netlify 正式環境驗證）都只在桌面版 Chrome 做過，響應式版面、觸控簽名、相機拍照都還沒在真實裝置上驗證過。現在已經有正式網址了，可以直接拿手機開 `https://cons-inspect.netlify.app` 測試。
 4. **沒有自動化測試**：目前完全依賴人工/live 瀏覽器測試，沒有任何 unit/integration test，之後每次修改都要重新手動走一次驗證流程。
 5. **目前是手動部署**：`netlify deploy --prod` 是本機手動觸發的一次性部署，還沒接上 GitHub 自動部署（push 到 main 就自動 build+deploy）。要接的話可以到 Netlify Dashboard 連結 GitHub repo。
+6. **（2026-09-18）單筆紀錄詳情頁尚未顯示簽名**：`InspectionDetailPage.tsx` 目前只有「顯示照片預覽」能抓 Drive 圖片；簽名雖然已經在送出時上傳並把 `signature_file_id` 存進 `insp_inspections`，但詳情頁完全沒有把簽名圖片顯示出來。做法應該可以直接比照 `handleShowThumbnails` 的模式（`fetchDriveFileAsObjectUrl(signature_file_id)`），另外加一個簽名預覽區塊。使用者已提出但先記錄，之後再做。
 
 ### 已知殘留物（非阻塞，供之後想到時清理）
 

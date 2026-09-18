@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { signOut } from '@/lib/auth';
 
@@ -10,9 +11,16 @@ export function AppHeader() {
       <span>
         {user?.email}（{role === 'admin' ? '管理者' : '一般使用者'}）
       </span>
-      <button type="button" onClick={() => signOut()} className="underline">
-        登出
-      </button>
+      <div className="flex items-center gap-3">
+        {role === 'admin' && (
+          <Link to="/admin/projects" className="underline">
+            後台管理
+          </Link>
+        )}
+        <button type="button" onClick={() => signOut()} className="underline">
+          登出
+        </button>
+      </div>
     </header>
   );
 }

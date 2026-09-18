@@ -39,7 +39,7 @@ export function InspectionFormPage() {
       inspection_date: now.toISOString().slice(0, 10),
       inspection_time: now.toTimeString().slice(0, 5),
       location: '',
-      // 預設帶入登入帳號，使用者仍可自行修改；正式身分以巡檢最後的簽名為準
+      // 先用帳號帶預設值，稍後在還原草稿的 effect 裡試著換成標案管理平台的職稱（user_roles.display_name）
       inspector: user?.email?.split('@')[0] ?? '',
     };
   });
@@ -78,7 +78,7 @@ export function InspectionFormPage() {
   // 重新整理遺失。頁面載入時嘗試還原草稿，之後每次變更都存回 IndexedDB。
   useEffect(() => {
     draftRestoredRef.current = false;
-    getDraftInspection(inspectionLocalId).then((draft) => {
+    getDraftInspection(inspectionLocalId).then(async (draft) => {
       const formData = draft?.formData as
         | { basicInfo?: BasicInfo; items?: Record<number, InspectionResult>; note?: string }
         | undefined;
@@ -86,8 +86,29 @@ export function InspectionFormPage() {
       if (formData?.items) setItems(formData.items);
       if (typeof formData?.note === 'string') setNote(formData.note);
       draftRestoredRef.current = true;
+
+      // 草稿沒有已填的巡檢人員時，改用標案管理平台 user_roles 的職稱（如「總務主任」）
+      // 取代帳號名稱；user_roles 屬於另一個系統，讀不到就維持帳號名稱
+      if (!formData?.basicInfo?.inspector && user?.id) {
+        const naiveDefault = user.email?.split('@')[0] ?? '';
+        try {
+          const { data } = await supabase
+            .from('user_roles')
+            .select('display_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          // 只在使用者還沒自己改過（仍是帳號名稱的預設值）時才覆蓋，避免蓋掉手動輸入
+          if (data?.display_name) {
+            setBasicInfo((prev) =>
+              prev.inspector === naiveDefault ? { ...prev, inspector: data.display_name } : prev,
+            );
+          }
+        } catch {
+          // 忽略，維持帳號名稱
+        }
+      }
     });
-  }, [inspectionLocalId]);
+  }, [inspectionLocalId, user?.id]);
 
   useEffect(() => {
     if (!draftRestoredRef.current) return;

@@ -17,16 +17,17 @@ export function ProjectListPage() {
 
     async function load() {
       setLoading(true);
+      // RLS 已限制：admin 看得到全部進行中案件，一般使用者僅看得到自己被指派的案件
       const { data, error } = await supabase
-        .from('insp_project_assignees')
-        .select('insp_projects!inner(*)')
-        .eq('user_email', user!.email!)
-        .eq('insp_projects.status', 'active');
+        .from('insp_projects')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
 
       if (error) {
         setError(error.message);
       } else {
-        setProjects((data ?? []).map((row: any) => row.insp_projects));
+        setProjects(data ?? []);
       }
       setLoading(false);
     }

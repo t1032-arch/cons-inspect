@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import type { InspProject, InspProjectAssignee } from '@/types';
@@ -122,6 +123,9 @@ export function AdminProjectsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
+      <Link to="/" className="inline-block text-sm text-slate-500 underline">
+        ← 返回案件列表
+      </Link>
       <div>
         <h1 className="mb-4 text-xl font-bold">新增承攬案件</h1>
         <div className="grid grid-cols-2 gap-3">

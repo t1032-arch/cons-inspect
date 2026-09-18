@@ -3,6 +3,7 @@ import { AuthProvider } from '@/lib/AuthContext';
 import { AdminRoute, ProtectedRoute } from '@/components/ProtectedRoute';
 import { LoginPage } from '@/pages/LoginPage';
 import { ProjectListPage } from '@/pages/ProjectListPage';
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 import { InspectionFormPage } from '@/pages/InspectionFormPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { InspectionDetailPage } from '@/pages/InspectionDetailPage';
@@ -16,6 +17,7 @@ export function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<ProjectListPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/projects/:projectId/inspect" element={<InspectionFormPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/inspections/:id" element={<InspectionDetailPage />} />

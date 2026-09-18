@@ -6,6 +6,7 @@ import { INSPECTION_ITEM_DEFINITIONS, RESULT_LABELS } from '@/constants/inspecti
 import { saveInspectionEdits, type InspectionEditForm } from '@/lib/editInspection';
 import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@/lib/googleDrive';
 import { generateInspectionPdf } from '@/lib/reports/generateInspectionPdf';
+import { addPhotosToInspection } from '@/lib/submitInspection';
 import type {
   InspInspection,
   InspInspectionEditLog,
@@ -52,6 +53,10 @@ export function InspectionDetailPage() {
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [addPhotoError, setAddPhotoError] = useState<string | null>(null);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const [deletePhotoError, setDeletePhotoError] = useState<string | null>(null);
 
   async function load() {
     if (!id) return;
@@ -164,6 +169,47 @@ export function InspectionDetailPage() {
       setReportError(err instanceof Error ? err.message : '報表產生失敗');
     } finally {
       setGeneratingReport(false);
+    }
+  }
+
+  async function handleAddPhotos(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0 || !data || !user?.email) return;
+    setAddPhotoError(null);
+    setUploadingPhotos(true);
+    try {
+      if (!isDriveEnabled()) {
+        await requestDriveAccess(user.email);
+      }
+      await addPhotosToInspection({
+        inspectionId: data.inspection.id,
+        projectName: data.project.project_name,
+        inspectionDate: data.inspection.inspection_date,
+        files: Array.from(fileList),
+      });
+      await load();
+    } catch (err) {
+      setAddPhotoError(err instanceof Error ? err.message : '照片上傳失敗，請稍後再試');
+    } finally {
+      setUploadingPhotos(false);
+    }
+  }
+
+  async function handleDeletePhoto(photoId: string) {
+    setDeletePhotoError(null);
+    setDeletingPhotoId(photoId);
+    try {
+      const { error } = await supabase.from('insp_inspection_photos').delete().eq('id', photoId);
+      if (error) throw error;
+      setThumbnails((prev) => {
+        const { [photoId]: removed, ...rest } = prev;
+        if (removed) URL.revokeObjectURL(removed);
+        return rest;
+      });
+      await load();
+    } catch (err) {
+      setDeletePhotoError(err instanceof Error ? err.message : '刪除失敗，請稍後再試');
+    } finally {
+      setDeletingPhotoId(null);
     }
   }
 
@@ -383,30 +429,64 @@ export function InspectionDetailPage() {
           )}
         </div>
         {thumbnailError && <p className="mb-2 text-xs text-result-poor">{thumbnailError}</p>}
+        <div className="mb-3">
+          <label className="block text-xs text-slate-500">
+            補上傳照片
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={uploadingPhotos}
+              onChange={(e) => {
+                handleAddPhotos(e.target.files);
+                e.target.value = '';
+              }}
+              className="mt-1 block w-full text-sm"
+            />
+          </label>
+          {uploadingPhotos && <p className="mt-1 text-xs text-slate-500">上傳中…</p>}
+          {addPhotoError && <p className="mt-1 text-xs text-result-poor">{addPhotoError}</p>}
+        </div>
+        {deletePhotoError && (
+          <p className="mb-2 text-xs text-result-poor">刪除失敗：{deletePhotoError}</p>
+        )}
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {data.photos.map((photo) => (
-            <li key={photo.id} className="space-y-1 text-sm text-slate-500">
-              {thumbnails[photo.id] ? (
-                <img
-                  src={thumbnails[photo.id]}
-                  alt={photo.filename}
-                  className="aspect-square w-full rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
-                  尚未載入
-                </div>
-              )}
-              <p className="truncate text-xs">
-                {photo.filename} —{' '}
-                {photo.upload_status === 'uploaded'
-                  ? '已上傳'
-                  : photo.upload_status === 'failed'
-                    ? '上傳失敗'
-                    : '上傳中'}
-              </p>
-            </li>
-          ))}
+          {data.photos.map((photo) => {
+            const canDelete = role === 'admin' || (!!user && user.id === data.inspection.created_by);
+            return (
+              <li key={photo.id} className="space-y-1 text-sm text-slate-500">
+                {thumbnails[photo.id] ? (
+                  <img
+                    src={thumbnails[photo.id]}
+                    alt={photo.filename}
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
+                    尚未載入
+                  </div>
+                )}
+                <p className="truncate text-xs">
+                  {photo.filename} —{' '}
+                  {photo.upload_status === 'uploaded'
+                    ? '已上傳'
+                    : photo.upload_status === 'failed'
+                      ? '上傳失敗'
+                      : '上傳中'}
+                </p>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePhoto(photo.id)}
+                    disabled={deletingPhotoId === photo.id}
+                    className="text-xs text-result-poor underline disabled:opacity-50"
+                  >
+                    {deletingPhotoId === photo.id ? '刪除中…' : '刪除'}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

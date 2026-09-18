@@ -62,7 +62,7 @@ export function ProjectListPage() {
           {filtered.map((project) => (
             <li key={project.id}>
               <Link
-                to={`/projects/${project.id}/inspect`}
+                to={`/projects/${project.id}`}
                 className="block rounded-lg border border-slate-200 p-4 hover:bg-slate-50"
               >
                 <p className="font-medium text-slate-900">{project.project_name}</p>

@@ -39,7 +39,8 @@ export function InspectionFormPage() {
       inspection_date: now.toISOString().slice(0, 10),
       inspection_time: now.toTimeString().slice(0, 5),
       location: '',
-      inspector: '',
+      // 預設帶入登入帳號，使用者仍可自行修改；正式身分以巡檢最後的簽名為準
+      inspector: user?.email?.split('@')[0] ?? '',
     };
   });
   const [items, setItems] = useState<Record<number, InspectionResult>>({});
@@ -148,7 +149,7 @@ export function InspectionFormPage() {
   }
 
   async function handleSubmit() {
-    if (!project) return;
+    if (!project || !user) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -164,6 +165,7 @@ export function InspectionFormPage() {
         items,
         inspectionLocalId,
         signatureBlob,
+        userId: user.id,
       });
 
       await deleteDraftInspection(inspectionLocalId);
@@ -192,7 +194,7 @@ export function InspectionFormPage() {
               type="date"
               value={basicInfo.inspection_date}
               onChange={(e) => setBasicInfo({ ...basicInfo, inspection_date: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full rounded-lg border border-slate-300 py-2 pl-3 pr-4"
             />
           </label>
           <label className="block">
@@ -201,7 +203,7 @@ export function InspectionFormPage() {
               type="time"
               value={basicInfo.inspection_time}
               onChange={(e) => setBasicInfo({ ...basicInfo, inspection_time: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full rounded-lg border border-slate-300 py-2 pl-3 pr-4"
             />
           </label>
           <label className="block">
@@ -270,7 +272,6 @@ export function InspectionFormPage() {
           <input
             type="file"
             accept="image/*"
-            capture="environment"
             multiple
             onChange={(e) => handlePhotoSelect(e.target.files)}
             className="block w-full text-sm"

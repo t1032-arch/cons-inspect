@@ -48,6 +48,7 @@ export interface InspInspection {
   inspector: string;
   note: string | null;
   signature_file_id: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }

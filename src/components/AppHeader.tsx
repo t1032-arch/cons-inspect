@@ -12,6 +12,9 @@ export function AppHeader() {
         {user?.email}（{role === 'admin' ? '管理者' : '一般使用者'}）
       </span>
       <div className="flex items-center gap-3">
+        <Link to="/history" className="underline">
+          巡檢紀錄
+        </Link>
         {role === 'admin' && (
           <Link to="/admin/projects" className="underline">
             後台管理

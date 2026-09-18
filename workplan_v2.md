@@ -1,6 +1,8 @@
 # 學校施工巡檢填報紀錄系統｜Work Plan v2
 
 > 本版基於原始 work plan 修訂，整合以下討論結論：Google Drive 串接技術細節（沿用「發文平台」既有做法）、照片壓縮規格、現場離線佇列需求、案件指派權限、資料結構補強。變更處於各節內以「**v2 更新**」標示。
+>
+> **本檔案定位（2026-09-18 拆分後）**：這裡只保留完整需求規格與設計決策理由（§1–21），屬於定案後不常變動的內容。開發進度、時序記錄請看 [CHANGELOG.md](./CHANGELOG.md)；尚待完成事項請看 [TODO.md](./TODO.md)；Claude Code 在此 repo 工作的現況操作手冊請看 [CLAUDE.md](./CLAUDE.md)；人類看的專案介紹與本機設定請看 [README.md](./README.md)。
 
 ## 1. 專案目標
 
@@ -703,78 +705,5 @@ good
 
 ---
 
-## 22. 開發進度與待辦事項（2026-09-08 暫停於此）
+（原 §22 開發進度與待辦事項已拆分至 [CHANGELOG.md](./CHANGELOG.md) 與 [TODO.md](./TODO.md)，內容不重複保留於此。）
 
-Repo：https://github.com/t1032-arch/cons-inspect（main branch，此時 working tree 乾淨，所有內容皆已 push）。
-
-### 已完成
-
-- 專案骨架：Vite + React + TypeScript + Tailwind，`npm install`／`npx tsc -b`／`npx vite build` 皆通過
-- 路由：登入、案件列表、巡檢填報精靈（六步驟）、歷史紀錄、單筆紀錄查看、後台案件管理
-- `src/lib/supabase.ts`、`AuthContext.tsx`：角色判斷讀 `insp_user_roles`，不沿用標案管理平台的 `user_roles`（見第16.0節）
-- `src/lib/googleDrive.ts`：授權流程沿用發文平台驗證過的做法（scope=`drive`、不做靜默授權、hint email、tokenClient 每次 reset）；**巢狀資料夾結構是巡檢系統自己的設計**，發文平台實際上是單一固定 `FOLDER_ID` 扁平存檔（已讀取 `posts-management/src/drive.js` 原始碼確認）
-- `src/lib/imageCompression.ts`：完全依 §7.1 規格實作
-- `src/lib/offlineQueue.ts`、`submitInspection.ts`：IndexedDB 離線佇列，對應 §7.3
-- `supabase/migrations/0001_init.sql`：已在 Supabase Dashboard SQL Editor 執行完成，8 張 `insp_` 表與標案管理平台既有表並存於同一 schema，`insp_inspection_item_definitions` 10 筆種子資料已確認可透過 PostgREST 讀取
-- `.env` 的 `VITE_GOOGLE_CLIENT_ID`、`VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID` 皆已取得並填入：
-  - `VITE_GOOGLE_CLIENT_ID`：用 t1032 帳號在 Google Cloud Console 新建專案 `cons-inspect`（獨立於發文平台的專案），OAuth consent screen 選 Internal，手動加上 `https://www.googleapis.com/auth/drive` scope（不在預設勾選清單中，要在「手動新增範圍」欄位貼上），建立 Web application 類型憑證，已確認 `http://localhost:5173` 已加入「已授權的 JavaScript 來源」
-  - `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`：13001（總務主任）帳號建立根資料夾，一般存取權設成「同網域使用者皆可編輯」（比照發文平台實際做法，不需逐一加使用者）
-- 兩位 admin 已寫入 `insp_user_roles`（2026-09-07）：`t1032@tlhc.ylc.edu.tw`、`13001@tlhc.ylc.edu.tw`。兩人先前都登入過標案管理平台/發文平台，`auth.users` 裡已有帳號，故直接用既有 `user_id` insert，不需要另外建立登入帳號
-- **（2026-09-08）修改紀錄功能**：`src/lib/editInspection.ts` 新增，`InspectionDetailPage` 加上 admin-only 的「編輯」按鈕，可修改日期/時間/地點/巡檢人員/備註/10項結果，儲存時逐欄位 diff 並寫入 `insp_inspection_edit_log`（欄位、修改前、修改後、修改人、時間），頁面下方顯示「修改紀錄」（同樣 admin-only，符合該表 RLS 只允許 admin 讀寫）。已於瀏覽器實測：建立測試案件與巡檢紀錄、編輯地點/備註/第1項結果、確認修改紀錄正確顯示三筆 diff。
-- **（2026-09-08）照片縮圖顯示**：`googleDrive.ts` 新增 `fetchDriveFileAsObjectUrl()`，沿用既有的前端 Drive OAuth token（不另外架設後端代理，因為巡檢系統本來就要求使用者啟用 Drive 授權才能上傳照片）。`InspectionDetailPage` 加上「顯示照片預覽」按鈕，抓取 `alt=media` 內容轉 blob URL 顯示縮圖網格。**UI 已確認正常渲染，但實際抓圖流程尚未實測**——需要真的透過巡檢填報精靈上傳過照片的紀錄才能驗證，Drive OAuth 的授權彈窗無法透過瀏覽器自動化觸發完成。
-- **（2026-09-08）補了兩個順便發現的既有問題**：
-  - `AdminProjectsPage` 新增案件時，date 欄位空字串會讓 Postgres insert 失敗（`22007`），但程式碼沒檢查 error，UI 會誤以為新增成功。已修正成把空字串轉 `null`，並把錯誤訊息顯示在畫面上（原本用 `alert()`，後改成 inline 訊息，避免瀏覽器自動化測試時被原生 dialog 卡住）。
-  - App 裡完全沒有登出功能。新增 `src/components/AppHeader.tsx`（顯示目前登入者 email/角色 + 登出連結），掛在 `ProtectedRoute` 上，所有已登入頁面都會顯示。
-- **（2026-09-08，換到另一台電腦接續）照片縮圖抓取流程 — 已實測通過**：走完整填報精靈、上傳 4 張照片、送出後在詳細頁點「顯示照片預覽」，4 張皆正確從 Drive 抓取顯示。§13/§7.2 原訂待辦已無殘留項目。
-  - 過程中發現並修正一個環境問題（非程式碼 bug）：dev server 若跑在非 5173 的 port（例如 5173 被殘留 process 占用而改用 5174），Google OAuth 會回傳 `origin_mismatch`（因為 Google Cloud Console 的「已授權 JavaScript 來源」只登記了 `http://localhost:5173`）。換電腦或重啟環境時要注意確保 dev server 跑在 5173，否則 Drive 授權會直接失敗。
-- **（2026-09-08）巡檢紀錄查詢頁篩選功能 — 已實測通過**：`HistoryPage` 的「只顯示有『不良』的紀錄」checkbox 篩選邏輯正確（`rows.filter(r => r.poor_count > 0)`），雙向切換皆正確篩入/篩出。這是 §19 MVP 清單第 11 項此前從未實測過的部分。
-- **（2026-09-08）修正離線佇列的重大缺陷**：`submitInspection.ts` 原本簽名上傳（`uploadFileToDrive` for signature）沒有包 try/catch，一旦網路失敗會直接 throw，導致：(1) `insp_inspections`／`insp_inspection_items` 已寫入但整筆送出「看起來」失敗，產生沒有照片、沒有簽名的孤兒紀錄；(2) 使用者若依畫面提示重新點擊送出，會建立**新的重複紀錄**而非續傳，因為送出邏輯每次都是全新 insert。已修正為 try/catch 吞掉錯誤、`signature_file_id` 留空並繼續處理照片，比照片既有的容錯精神一致（§7.3）。已用模擬 Drive fetch 失敗的方式實測驗證：修復前重試 2 次產生 2 筆孤兒重複紀錄；修復後同樣情境只產生 1 筆完整紀錄（簽名留空、照片正確標記 `failed`）。**目前規模下未額外加簽名重試佇列或 idempotency 機制**（範圍已與使用者確認），僅止於不阻擋整筆送出。
-- **（2026-09-08）新增：案件地點自動帶入巡檢表單**：`InspectionFormPage.tsx` 讀取案件資料後，若 `insp_projects.location` 有值且使用者尚未輸入過巡檢地點，自動帶入該案件地點，欄位仍可自由編輯覆蓋。後台新增案件表單本來就已有 `location` 欄位（optional），不需額外修改。已實測：建立案件時填地點「E棟頂樓水塔」，開始巡檢後「巡檢地點」欄位自動帶入且可編輯。
-
-### 待辦
-
-目前 §13（單筆巡檢紀錄）、§7.2（照片縮圖）、§19 第 11 項（查詢頁篩選）相關的原訂待辦事項均已完成並實測通過。
-
-- **（2026-09-08）§7.3 表單草稿本機暫存 — 已實作並實測通過**：`InspectionFormPage.tsx` 新增兩個 effect：頁面載入時呼叫 `getDraftInspection(draft-${projectId})` 還原 `basicInfo`／`items`／`note`（用 `draftRestoredRef` 擋掉還原完成前的自動存檔，避免用初始空白狀態蓋掉尚未讀出的草稿）；之後這三個 state 只要變動就呼叫 `saveDraftInspection` 存回 IndexedDB；送出成功後呼叫 `deleteDraftInspection` 清掉草稿。實測：填地點/人員/前3項良好後直接重新整理頁面，還原正確；完整送出成功後直接查 IndexedDB 確認草稿已清除（`undefined`）。案件地點自動帶入與這個草稿還原的互動：兩者都用「若目前是空的才填入」的判斷式，不會互相蓋掉。
-- **（2026-09-08）`editInspection.ts` 的 edit_log 寫入時機 — 已修正並實測通過**：原本所有欄位／項目的異動全部更新完才一次寫入 `insp_inspection_edit_log`，若中途（例如第 2 項）更新失敗，前面已經生效的異動（地點、第 1 項）會完全沒有留下任何修改紀錄，直接違反這個功能「避免直接覆寫而無紀錄」的目的。已修正為每完成一項異動就立刻寫入對應的 log（欄位異動視為一組原子更新＋一次 log insert；每個項目各自更新＋各自 log insert）。用模擬 fetch 失敗的方式實測：第 2 項故意失敗時，地點與第 1 項確認已更新且各有 1 筆 log（共 2 筆，無缺漏）；第 2 項維持原值、無孤兒 log。
-- **（2026-09-08）`InspectionDetailPage.tsx` 的 `handleSave` 完全沒有 catch 區塊 — 已修正並實測通過**：上面這個 edit_log 順序問題原本更嚴重的地方在於，儲存失敗時使用者畫面上完全沒有任何錯誤提示（`handleSave` 只有 try/finally，沒有 catch，例外直接變成 unhandled rejection），而且因為失敗後 `data`／`editForm` 都沒有重新整理，使用者若重新點「儲存修改」，`saveInspectionEdits` 會拿舊的（未反映部分成功異動的）`data.inspection` 去跟 `editForm` 做 diff，導致已經成功的欄位被重複偵測成「有差異」而重複更新、重複寫入 log。已修正：新增 `saveError` state 並在按鈕旁顯示錯誤訊息；catch 區塊內也呼叫 `load()`／重新查 `editLogs`，讓 `data` 反映實際已生效的異動，這樣重試時只會處理真正還沒成功的部分，不會產生重複 log。用模擬第 3 項失敗＋重試成功的方式實測：錯誤訊息正確顯示、最終 4 筆真實異動（地點＋3項）對應剛好 4 筆 log，無重複。
-- **（2026-09-08）一般使用者（user）角色權限 — 首次實測，全部通過**：此前整個專案（含前次 session）所有測試都是用 admin 帳號（`insp_is_admin()` 直接放行全部操作），一般使用者的 RLS policy（`insp_projects_assignee_select`／`insp_inspections_assignee_select`／`insp_inspections_assignee_insert` 等）從未被真正驗證過，是上線前最大的未知風險。這次用第三個真實學校帳號（`reservation.notice@tlhc.ylc.edu.tw`，先登入一次讓 `auth.users` 建立紀錄，再用 service role key 建案件＋指派）實測：
-  - 案件選擇頁只顯示被指派的 active 案件，未指派的完全不出現
-  - 直接用網址訪問未指派案件的 `/projects/:id/inspect`，RLS 正確擋下（`project` 永遠拿不到資料，卡在載入畫面，沒有資料外洩，但也沒有「無權限」提示，是可以之後改善的 UX 小問題，非安全性問題）
-  - 被指派案件可正常走完填報精靈並成功送出（驗證 `insp_inspections_assignee_insert` 等 insert policy 正確）
-  - 紀錄詳細頁沒有「編輯」按鈕、也看不到修改紀錄區塊
-  - 歷史紀錄頁只顯示權限範圍內的紀錄
-  - 直接用網址訪問 `/admin/projects`，被前端路由導回首頁，沒有被 admin 專屬功能卡住或看到後台
-  
-  結論：RLS 與前端權限邏輯設計正確，這項風險已排除。測試資料（2 個測試案件＋指派＋1 筆巡檢紀錄）已清除，`reservation.notice@tlhc.ylc.edu.tw` 這個帳號本身（`auth.users`）保留，未來要用可以直接把它加進其他案件的 `insp_project_assignees`。
-
-- **（2026-09-08）已部署到 Netlify 正式環境，完整流程實測通過**：站台 `cons-inspect`（account slug `t1032`），Production URL `https://cons-inspect.netlify.app`。設定內容：
-  - `netlify.toml`：`build.command = "npm run build"`、`publish = "dist"`，並加了 `/* → /index.html (200)` 的 redirect 規則（React Router 是 client-side routing，直接訪問 `/history`、`/inspections/:id` 這類子路徑沒有這條規則會 404）
-  - Netlify 環境變數：`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、`VITE_GOOGLE_CLIENT_ID`、`VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`（`SUPABASE_SERVICE_ROLE_KEY` 刻意不放，那只給本機測試腳本用，不該進前端 build）
-  - 使用者已手動完成兩項 Netlify 網域必要設定：Supabase Dashboard → Authentication → URL Configuration 加入 `https://cons-inspect.netlify.app` 為 Redirect URL；Google Cloud Console 的 `cons-inspect` OAuth 憑證加入同網域為已授權 JavaScript 來源
-  - **（附帶發現）** 使用者提到他另外 2 個專案也共用同一個 Supabase 專案，其中一個部署在 Netlify 的專案，當初 coding 時就沒把該 Netlify 網域加進 Supabase 的 Redirect URLs——這解釋了為什麼加入 cons-inspect 網域前，登入 OAuth 完成後會直接被導到另一個「標案管理平台」去（Supabase 找不到符合的 redirect URL 時似乎會 fallback 到清單中其他已允許的網址）。這是使用者另一個舊專案的既有缺口，不影響 cons-inspect，但值得使用者之後找時間一併補上。
-  - 完整實測（admin 帳號）：登入 → 後台建案＋指派 → 案件地點自動帶入 → 6 步驟填報精靈 → **Drive 授權在正式網域成功**（沒有本機開發時踩到的 `origin_mismatch`）→ 照片上傳成功（`已上傳` 狀態）→ 簽名 → 送出成功 → 詳細頁正確顯示。測試資料已清除（Supabase 端；Drive 端會留一個空測試資料夾，併入待清理清單）。
-  - **Claude Code 環境設定附帶記錄**：這台電腦的**全域** `~/.claude/settings.json` 裡有一段給*另一個*專案（`dae-reserve`，Firebase 系統）寫的 `autoMode.environment` 描述，內容包含「任何名稱含 `prod`/`production` 的目標都視為受保護部署環境」的規則。這條規則是全域生效的，導致這次在 cons-inspect 執行 `netlify deploy --prod` 被 auto-mode 分類器誤判為觸碰敏感正式環境而擋下（儘管跟那個規則描述的專案完全無關）。已改用專案層級設定解決：新增 `I:\cons-inspect\.claude\settings.local.json`，加入 `permissions.allow` 讓 `netlify deploy`／`netlify sites:*`／`netlify env:*` 等指令在這個專案內直接放行，不去動另一個專案仍在依賴的全域設定。之後如果又新增其他專案也要部署，可能要重複這個模式（專案層級 allow list），或考慮把全域那段過時的 `autoMode.environment` 一併整理掉。
-
-### 待辦
-
-已知仍未做的部分：
-
-1. `npm audit` 有 2 個 moderate 漏洞（vite/esbuild 的 dev-server 漏洞、react-router-dom 的 open redirect），皆需要 major version 升級才能修（vite 5→8、react-router-dom 6→7）。已與使用者確認先擱置，不影響目前功能開發。
-2. **小 UX 缺口**：一般使用者用網址直接訪問自己沒被指派的案件時，畫面會永遠卡在「載入案件資料中…」（因為 RLS 讓查詢回傳空值，`project` state 永遠是 null），沒有任何「你沒有權限」或「案件不存在」的提示。不是安全性問題（資料確實沒有外洩），但體驗不好，建議之後加個逾時或空值判斷顯示提示訊息。
-3. **手機／平板真機測試尚未做**：workplan §10「手機優先」的設計原則，目前所有測試（含這次 Netlify 正式環境驗證）都只在桌面版 Chrome 做過，響應式版面、觸控簽名、相機拍照都還沒在真實裝置上驗證過。現在已經有正式網址了，可以直接拿手機開 `https://cons-inspect.netlify.app` 測試。
-4. **沒有自動化測試**：目前完全依賴人工/live 瀏覽器測試，沒有任何 unit/integration test，之後每次修改都要重新手動走一次驗證流程。
-5. **目前是手動部署**：`netlify deploy --prod` 是本機手動觸發的一次性部署，還沒接上 GitHub 自動部署（push 到 main 就自動 build+deploy）。要接的話可以到 Netlify Dashboard 連結 GitHub repo。
-6. **（2026-09-18）單筆紀錄詳情頁尚未顯示簽名**：`InspectionDetailPage.tsx` 目前只有「顯示照片預覽」能抓 Drive 圖片；簽名雖然已經在送出時上傳並把 `signature_file_id` 存進 `insp_inspections`，但詳情頁完全沒有把簽名圖片顯示出來。做法應該可以直接比照 `handleShowThumbnails` 的模式（`fetchDriveFileAsObjectUrl(signature_file_id)`），另外加一個簽名預覽區塊。使用者已提出但先記錄，之後再做。
-
-### 已知殘留物（非阻塞，供之後想到時清理）
-
-- 2026-09-08（前次）用瀏覽器自動化測試「編輯功能」時的殘留：Drive 根資料夾（13001 帳號）下 `測試案件-QA請忽略` 子資料夾（僅一張測試簽名 PNG）。
-- 2026-09-08（本次，換電腦接續）測試照片縮圖與離線佇列時，Drive 根資料夾下又新增了 2-3 個空的測試子資料夾（`測試案件-照片測試-QA請忽略`、以及離線佇列測試留下的匿名巡檢紀錄資料夾）。
-- 以上皆為純測試殘留、無真實資料，Supabase 端已用 service role key 全部清除乾淨（案件/巡檢紀錄/指派紀錄，含 cascade 的 items/photos/edit_log），只有 Drive 端的空資料夾需要手動去根資料夾清理。
-
-### 換到別的電腦時要注意
-
-- git repo（本文件、程式碼、migration SQL）會同步過去，直接 `git clone` 或 `git pull` 即可接續
-- `.env` **不會**跟著 git 走（故意排除，因為裡面有 Supabase service role key），換電腦要手動建立 `.env`，把 Supabase 的 URL/anon key/service role key，以及上面「已完成」列表中的兩個 Google 值填進去
-- Claude 的本機記憶（memory）是綁在單一電腦上的，換電腦後 Claude 不會自動記得這次對話中討論過的決策細節——但只要這份文件與程式碼註解夠完整（已盡量寫進去了），接續時不需要重新對話確認這些已拍板的設計決策

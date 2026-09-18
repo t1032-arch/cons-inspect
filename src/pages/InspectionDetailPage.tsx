@@ -51,6 +51,9 @@ export function InspectionDetailPage() {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [loadingSignature, setLoadingSignature] = useState(false);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -109,6 +112,7 @@ export function InspectionDetailPage() {
     // 卸載時釋放 blob URL，避免記憶體累積
     return () => {
       Object.values(thumbnails).forEach((url) => URL.revokeObjectURL(url));
+      if (signatureUrl) URL.revokeObjectURL(signatureUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -156,6 +160,23 @@ export function InspectionDetailPage() {
       setThumbnailError(err instanceof Error ? err.message : '照片預覽載入失敗');
     } finally {
       setLoadingThumbnails(false);
+    }
+  }
+
+  async function handleShowSignature() {
+    if (!data?.inspection.signature_file_id || !user?.email) return;
+    setSignatureError(null);
+    setLoadingSignature(true);
+    try {
+      if (!isDriveEnabled()) {
+        await requestDriveAccess(user.email);
+      }
+      const url = await fetchDriveFileAsObjectUrl(data.inspection.signature_file_id);
+      setSignatureUrl(url);
+    } catch (err) {
+      setSignatureError(err instanceof Error ? err.message : '簽名預覽載入失敗');
+    } finally {
+      setLoadingSignature(false);
     }
   }
 
@@ -489,6 +510,32 @@ export function InspectionDetailPage() {
           })}
         </ul>
       </div>
+
+      {data.inspection.signature_file_id && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-semibold">簽名</h2>
+            {!signatureUrl && (
+              <button
+                type="button"
+                onClick={handleShowSignature}
+                disabled={loadingSignature}
+                className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50"
+              >
+                {loadingSignature ? '載入中…' : '顯示簽名預覽'}
+              </button>
+            )}
+          </div>
+          {signatureError && <p className="mb-2 text-xs text-result-poor">{signatureError}</p>}
+          {signatureUrl && (
+            <img
+              src={signatureUrl}
+              alt="簽名"
+              className="max-w-xs rounded-lg border border-slate-200 bg-white"
+            />
+          )}
+        </div>
+      )}
 
       <p className="text-xs text-slate-400">
         建立時間：{data.inspection.created_at} ・ 最後修改：{data.inspection.updated_at}

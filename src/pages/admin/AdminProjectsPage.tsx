@@ -23,6 +23,9 @@ export function AdminProjectsPage() {
   const [newAssigneeEmail, setNewAssigneeEmail] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState<string | null>(null);
 
   async function loadProjects() {
     setLoading(true);
@@ -63,6 +66,42 @@ export function AdminProjectsPage() {
 
   async function handleSetStatus(projectId: string, status: InspProject['status']) {
     await supabase.from('insp_projects').update({ status }).eq('id', projectId);
+    await loadProjects();
+  }
+
+  function startEdit(project: InspProject) {
+    setEditingId(project.id);
+    setEditError(null);
+    setEditForm({
+      project_name: project.project_name ?? '',
+      contractor: project.contractor ?? '',
+      location: project.location ?? '',
+      start_date: project.start_date ?? '',
+      end_date: project.end_date ?? '',
+      department: project.department ?? '',
+      manager: project.manager ?? '',
+      note: project.note ?? '',
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+  }
+
+  async function handleEditSave(projectId: string) {
+    if (!editForm.project_name) return;
+    setEditError(null);
+    // 空字串對 date 欄位（start_date/end_date）是不合法的值，需轉成 null
+    const payload = Object.fromEntries(
+      Object.entries(editForm).map(([key, value]) => [key, value === '' ? null : value]),
+    );
+    const { error } = await supabase.from('insp_projects').update(payload).eq('id', projectId);
+    if (error) {
+      setEditError(error.message);
+      return;
+    }
+    setEditingId(null);
     await loadProjects();
   }
 
@@ -114,25 +153,69 @@ export function AdminProjectsPage() {
           <ul className="space-y-4">
             {projects.map((project) => (
               <li key={project.id} className="rounded-lg border border-slate-200 p-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium">
-                    {project.project_name}（{project.status}）
+                {editingId === project.id ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {(Object.keys(emptyForm) as Array<keyof typeof emptyForm>).map((key) => (
+                        <input
+                          key={key}
+                          placeholder={key}
+                          value={editForm[key]}
+                          onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        />
+                      ))}
+                    </div>
+                    {editError && <p className="text-sm text-result-poor">儲存失敗：{editError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditSave(project.id)}
+                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
+                      >
+                        儲存
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">
+                      {project.project_name}（{project.status}）
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(project)}
+                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                      >
+                        編輯
+                      </button>
+                      <select
+                        value={project.status}
+                        onChange={(e) =>
+                          handleSetStatus(project.id, e.target.value as InspProject['status'])
+                        }
+                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                      >
+                        <option value="active">進行中</option>
+                        <option value="completed">已完成</option>
+                        <option value="disabled">停用</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {editingId !== project.id && (
+                  <p className="text-sm text-slate-500">
+                    {project.contractor} ・ {project.location}
                   </p>
-                  <select
-                    value={project.status}
-                    onChange={(e) =>
-                      handleSetStatus(project.id, e.target.value as InspProject['status'])
-                    }
-                    className="rounded border border-slate-300 px-2 py-1 text-sm"
-                  >
-                    <option value="active">進行中</option>
-                    <option value="completed">已完成</option>
-                    <option value="disabled">停用</option>
-                  </select>
-                </div>
-                <p className="text-sm text-slate-500">
-                  {project.contractor} ・ {project.location}
-                </p>
+                )}
 
                 <div className="mt-3">
                   <p className="mb-1 text-sm font-medium">指派填報人員</p>

@@ -44,7 +44,8 @@ export function InspectionFormPage() {
     };
   });
   const [items, setItems] = useState<Record<number, InspectionResult>>({});
-  const [note, setNote] = useState('');
+  // 預設「無異常」，多數情況不用再手動打字；有問題時使用者自行改掉
+  const [note, setNote] = useState('無異常');
   const [photos, setPhotos] = useState<PendingPhoto[]>([]);
   const [signatureEmpty, setSignatureEmpty] = useState(true);
   const [driveReady, setDriveReady] = useState(isDriveEnabled());

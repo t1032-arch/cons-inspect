@@ -11,7 +11,7 @@
   - 各頁標題下方的副標文字（案件廠商/地點、巡檢日期時間/地點/人員）同步加深加粗
   - `ProjectListPage.tsx`／`ProjectDetailPage.tsx`／`HistoryPage.tsx` 補上 `mx-auto max-w-2xl`，桌機寬螢幕下內容不再滿版拉伸，跟其他頁面寬度一致
   - 全站 `text-xs`／`text-sm`／`text-xl` 加上 `md:` 響應式字級（桌機 ≥768px 才生效，手機版面完全不受影響），涵蓋 8 個檔案
-- 部署事故記錄：這台電腦沒有 `.netlify/state.json`（被 `.gitignore`，本來就不隨 git 走），直接跑 `netlify deploy --prod` 時 CLI 沒有詢問要不要連結既有站台，而是自動建立了一個全新站台 `symphonious-halva-5e2788`。已發現後用 `netlify unlink` + `netlify link --id 7ad2f601-c31f-4d16-bc0a-ca3548b813a7` 重新連回 `cons-inspect`，再重新 `netlify deploy --prod` 部署到正確站台（`https://cons-inspect.netlify.app`）。誤建立的 `symphonious-halva-5e2788` 站台尚未刪除，待確認後清理。
+- 部署事故記錄：這台電腦沒有 `.netlify/state.json`（被 `.gitignore`，本來就不隨 git 走），直接跑 `netlify deploy --prod` 時 CLI 沒有詢問要不要連結既有站台，而是自動建立了一個全新站台 `symphonious-halva-5e2788`。已發現後用 `netlify unlink` + `netlify link --id 7ad2f601-c31f-4d16-bc0a-ca3548b813a7` 重新連回 `cons-inspect`，再重新 `netlify deploy --prod` 部署到正確站台（`https://cons-inspect.netlify.app`）。誤建立的 `symphonious-halva-5e2788` 站台已確認並刪除（`netlify sites:delete`）。
 
 ## 2026-09-18
 

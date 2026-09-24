@@ -2,6 +2,17 @@
 
 時序記錄，只增不改（新內容一律附加在最上方，不回頭改寫舊條目）。完整需求／設計脈絡見 [workplan_v2.md](./workplan_v2.md)，Claude 工作規則見 [CLAUDE.md](./CLAUDE.md)，尚未完成的項目見 [TODO.md](./TODO.md)。
 
+## 2026-09-24
+
+- 照片預覽改為折衷方案：`InspectionDetailPage.tsx` 新增 `useEffect`，同一瀏覽器 session 內若已透過填報頁等流程取得 Drive 授權（`isDriveEnabled()`），進詳情頁會自動載入照片縮圖，不用使用者再點一次「顯示照片預覽」；若尚未授權則維持原本「不做靜默授權」政策，按鈕照常等使用者手動點擊觸發 OAuth。
+- 修正建立時間／最後修改／修改紀錄時間顯示時區錯誤的問題：`created_at`／`updated_at`／`edited_at` 是 Postgres `timestamptz`，Supabase 回傳 UTC ISO 字串，`InspectionDetailPage.tsx` 原本直接印出來，畫面顯示比台灣時間少 8 小時。新增 `src/lib/formatDateTime.ts`（`toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })`）統一轉換，已在瀏覽器實測確認正確。
+- 桌機 UI/UX 調整（使用者反映桌機瀏覽字體/連結觀感偏弱）：
+  - `AppHeader.tsx` 導覽列（首頁／巡檢紀錄／後台管理／登出）與各頁「← 返回」連結，原本是淡灰色純底線，改為深色加粗、hover 才顯示底線
+  - 各頁標題下方的副標文字（案件廠商/地點、巡檢日期時間/地點/人員）同步加深加粗
+  - `ProjectListPage.tsx`／`ProjectDetailPage.tsx`／`HistoryPage.tsx` 補上 `mx-auto max-w-2xl`，桌機寬螢幕下內容不再滿版拉伸，跟其他頁面寬度一致
+  - 全站 `text-xs`／`text-sm`／`text-xl` 加上 `md:` 響應式字級（桌機 ≥768px 才生效，手機版面完全不受影響），涵蓋 8 個檔案
+- 部署事故記錄：這台電腦沒有 `.netlify/state.json`（被 `.gitignore`，本來就不隨 git 走），直接跑 `netlify deploy --prod` 時 CLI 沒有詢問要不要連結既有站台，而是自動建立了一個全新站台 `symphonious-halva-5e2788`。已發現後用 `netlify unlink` + `netlify link --id 7ad2f601-c31f-4d16-bc0a-ca3548b813a7` 重新連回 `cons-inspect`，再重新 `netlify deploy --prod` 部署到正確站台（`https://cons-inspect.netlify.app`）。誤建立的 `symphonious-halva-5e2788` 站台尚未刪除，待確認後清理。
+
 ## 2026-09-18
 
 - 單筆紀錄詳情頁新增簽名預覽：`InspectionDetailPage.tsx` 比照既有「顯示照片預覽」模式新增 `handleShowSignature`，用 `fetchDriveFileAsObjectUrl(signature_file_id)` 抓取並顯示簽名圖片，blob URL 於卸載時釋放。`npx tsc -b` 通過。尚未實際用真機/瀏覽器點過按鈕驗證抓圖流程本身（Drive OAuth 授權彈窗不易透過瀏覽器自動化完整驗證），之後有真實簽名資料時應補一次實測。

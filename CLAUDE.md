@@ -29,6 +29,7 @@ npm run lint
 - **dev server 必須跑在 port 5173**：Google Cloud Console 的「已授權 JavaScript 來源」只登記了 `http://localhost:5173`，跑在其他 port（例如 5173 被佔用改用 5174）會讓 Drive OAuth 回傳 `origin_mismatch`。
 - **`.env` 不會跟著 git 走**（故意排除，含 service role key）。換電腦要手動建立，需要的變數與取得方式見 [README.md](./README.md)。
 - **全域 `~/.claude/settings.json` 可能誤傷本專案**：這台電腦上曾有另一個專案（`dae-reserve`）寫的 `autoMode.environment` 全域規則，把任何含 `prod`/`production` 字樣的目標都當受保護環境擋下，導致本專案 `netlify deploy --prod` 被誤判擋下。已用本專案 `.claude/settings.local.json` 的 `permissions.allow` 解決（放行 `netlify deploy`／`netlify sites:*`／`netlify env:*`），沒有動全域設定。之後遇到類似情況優先用專案層級 allow list，不要改全域規則。
+- **`netlify deploy --prod` 前務必確認已連結到 `cons-inspect`**：`.netlify/state.json` 被 `.gitignore` 排除、不隨 git 走，換電腦或全新 clone 時這個檔案不存在。曾發生直接跑 `netlify deploy --prod` 時 CLI 沒有詢問要連結哪個站台，而是自動建立一個全新的隨機命名站台，部署到錯的地方去。跑之前先 `netlify status` 確認 `Current project` 是 `cons-inspect`，不是就用 `netlify link --id 7ad2f601-c31f-4d16-bc0a-ca3548b813a7` 連回去，再部署。
 
 ## 文件分工
 

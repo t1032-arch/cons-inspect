@@ -56,20 +56,23 @@ export function ProjectDetailPage() {
   if (!project) return <div className="p-4 text-center text-slate-500">找不到案件</div>;
 
   return (
-    <div className="p-4">
-      <Link to="/" className="mb-4 inline-block text-sm text-slate-500 underline">
+    <div className="mx-auto max-w-2xl p-4">
+      <Link
+        to="/"
+        className="mb-4 inline-block text-sm font-medium text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline md:text-base"
+      >
         ← 返回案件列表
       </Link>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{project.project_name}</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-bold text-slate-900 md:text-2xl">{project.project_name}</h1>
+          <p className="text-sm font-medium text-slate-600 md:text-base">
             {project.contractor} ・ {project.location}
           </p>
         </div>
         <Link
           to={`/projects/${project.id}/inspect`}
-          className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
+          className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white md:text-base"
         >
           新增巡檢紀錄
         </Link>
@@ -87,13 +90,15 @@ export function ProjectDetailPage() {
               >
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{row.inspection_date}</p>
-                  <p className="text-sm text-slate-500">照片 {row.photo_count} 張</p>
+                  <p className="text-sm text-slate-500 md:text-base">照片 {row.photo_count} 張</p>
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 md:text-base">
                   {row.location} ・ {row.inspector}
                 </p>
                 {row.poor_count > 0 && (
-                  <p className="text-sm font-medium text-result-poor">不良項目 {row.poor_count} 項</p>
+                  <p className="text-sm font-medium text-result-poor md:text-base">
+                    不良項目 {row.poor_count} 項
+                  </p>
                 )}
               </Link>
             </li>

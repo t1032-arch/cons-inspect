@@ -44,8 +44,8 @@ export function ProjectListPage() {
   if (error) return <div className="p-4 text-center text-result-poor">讀取失敗：{error}</div>;
 
   return (
-    <div className="p-4">
-      <h1 className="mb-4 text-xl font-bold text-slate-900">選擇承攬案件</h1>
+    <div className="mx-auto max-w-2xl p-4">
+      <h1 className="mb-4 text-xl font-bold text-slate-900 md:text-2xl">選擇承攬案件</h1>
       <input
         type="search"
         value={keyword}
@@ -66,7 +66,7 @@ export function ProjectListPage() {
                 className="block rounded-lg border border-slate-200 p-4 hover:bg-slate-50"
               >
                 <p className="font-medium text-slate-900">{project.project_name}</p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 md:text-base">
                   {project.contractor} ・ {project.location}
                 </p>
               </Link>

@@ -12,14 +12,14 @@ export function InspectionItemCard({ definition, value, onChange }: Props) {
   return (
     <div className="space-y-4 border-b border-slate-200 pb-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-xl font-semibold text-slate-900 md:text-2xl">
           {definition.item_no}. {definition.title}
         </h2>
-        <p className="mt-1 text-sm text-slate-500">{definition.description}</p>
+        <p className="mt-1 text-sm text-slate-500 md:text-base">{definition.description}</p>
       </div>
       <ResultButtonGroup value={value} onChange={onChange} />
       {value === 'poor' && (
-        <p className="text-sm text-result-poor">
+        <p className="text-sm text-result-poor md:text-base">
           建議填寫備註或拍照記錄不良狀況（不強制阻擋送出）。
         </p>
       )}

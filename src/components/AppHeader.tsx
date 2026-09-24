@@ -7,26 +7,33 @@ export function AppHeader() {
   const { user, role } = useAuth();
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 px-4 py-2 text-xs text-slate-500">
-      <span>
+    <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <span className="text-xs text-slate-500 md:text-sm">
         {user?.email}（{role === 'admin' ? '管理者' : '一般使用者'}）
       </span>
-      <div className="flex items-center gap-3">
-        <Link to="/" className="underline">
+      <nav className="flex items-center gap-4 text-sm font-medium md:text-base">
+        <Link to="/" className="text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline">
           首頁
         </Link>
-        <Link to="/history" className="underline">
+        <Link to="/history" className="text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline">
           巡檢紀錄
         </Link>
         {role === 'admin' && (
-          <Link to="/admin/projects" className="underline">
+          <Link
+            to="/admin/projects"
+            className="text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline"
+          >
             後台管理
           </Link>
         )}
-        <button type="button" onClick={() => signOut()} className="underline">
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline"
+        >
           登出
         </button>
-      </div>
+      </nav>
     </header>
   );
 }

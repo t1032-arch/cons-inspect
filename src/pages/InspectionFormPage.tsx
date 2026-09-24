@@ -203,15 +203,15 @@ export function InspectionFormPage() {
 
   return (
     <div className="mx-auto max-w-xl p-4 pb-24">
-      <p className="mb-4 text-sm text-slate-500">
+      <p className="mb-4 text-sm text-slate-500 md:text-base">
         {project.project_name} ・ 步驟 {stepIndex + 1} / {STEPS.length}
       </p>
 
       {step === 'basic' && (
         <div className="space-y-4">
-          <h1 className="text-xl font-bold">基本資料</h1>
+          <h1 className="text-xl font-bold md:text-2xl">基本資料</h1>
           <label className="block">
-            <span className="text-sm text-slate-600">巡檢日期</span>
+            <span className="text-sm text-slate-600 md:text-base">巡檢日期</span>
             <input
               type="date"
               value={basicInfo.inspection_date}
@@ -220,7 +220,7 @@ export function InspectionFormPage() {
             />
           </label>
           <label className="block">
-            <span className="text-sm text-slate-600">巡檢時間</span>
+            <span className="text-sm text-slate-600 md:text-base">巡檢時間</span>
             <input
               type="time"
               value={basicInfo.inspection_time}
@@ -229,7 +229,7 @@ export function InspectionFormPage() {
             />
           </label>
           <label className="block">
-            <span className="text-sm text-slate-600">巡檢地點</span>
+            <span className="text-sm text-slate-600 md:text-base">巡檢地點</span>
             <input
               type="text"
               value={basicInfo.location}
@@ -238,7 +238,7 @@ export function InspectionFormPage() {
             />
           </label>
           <label className="block">
-            <span className="text-sm text-slate-600">巡檢人員</span>
+            <span className="text-sm text-slate-600 md:text-base">巡檢人員</span>
             <input
               type="text"
               value={basicInfo.inspector}
@@ -251,7 +251,9 @@ export function InspectionFormPage() {
 
       {step === 'items' && (
         <div className="space-y-6">
-          <h1 className="text-xl font-bold">巡檢項目（{INSPECTION_ITEM_DEFINITIONS.length} 項）</h1>
+          <h1 className="text-xl font-bold md:text-2xl">
+            巡檢項目（{INSPECTION_ITEM_DEFINITIONS.length} 項）
+          </h1>
           {INSPECTION_ITEM_DEFINITIONS.map((def) => (
             <InspectionItemCard
               key={def.item_no}
@@ -265,7 +267,7 @@ export function InspectionFormPage() {
 
       {step === 'note' && (
         <div className="space-y-4">
-          <h1 className="text-xl font-bold">備註</h1>
+          <h1 className="text-xl font-bold md:text-2xl">備註</h1>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -278,9 +280,9 @@ export function InspectionFormPage() {
 
       {step === 'photos' && (
         <div className="space-y-4">
-          <h1 className="text-xl font-bold">現場照片</h1>
+          <h1 className="text-xl font-bold md:text-2xl">現場照片</h1>
           {!driveReady && (
-            <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 md:text-base">
               尚未啟用照片上傳功能。
               <button
                 type="button"
@@ -296,7 +298,7 @@ export function InspectionFormPage() {
             accept="image/*"
             multiple
             onChange={(e) => handlePhotoSelect(e.target.files)}
-            className="block w-full text-sm"
+            className="block w-full text-sm md:text-base"
           />
           <div className="grid grid-cols-3 gap-2">
             {photos.map((photo) => (
@@ -313,12 +315,12 @@ export function InspectionFormPage() {
 
       {step === 'signature' && (
         <div className="space-y-4">
-          <h1 className="text-xl font-bold">巡檢人員簽名</h1>
+          <h1 className="text-xl font-bold md:text-2xl">巡檢人員簽名</h1>
           <SignaturePad handleRef={signatureHandle} onChange={setSignatureEmpty} />
           <button
             type="button"
             onClick={() => signatureHandle.current?.clear()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm md:text-base"
           >
             清除重簽
           </button>
@@ -327,8 +329,8 @@ export function InspectionFormPage() {
 
       {step === 'review' && (
         <div className="space-y-4">
-          <h1 className="text-xl font-bold">送出前檢查</h1>
-          <ul className="space-y-1 text-sm">
+          <h1 className="text-xl font-bold md:text-2xl">送出前檢查</h1>
+          <ul className="space-y-1 text-sm md:text-base">
             <li>基本資料：{basicInfoValid ? '完成' : '尚未完成'}</li>
             <li>
               10 項巡檢：{Object.keys(items).length} / {INSPECTION_ITEM_DEFINITIONS.length}

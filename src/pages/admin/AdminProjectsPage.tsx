@@ -123,11 +123,14 @@ export function AdminProjectsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4">
-      <Link to="/" className="inline-block text-sm text-slate-500 underline">
+      <Link
+        to="/"
+        className="inline-block text-sm font-medium text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline md:text-base"
+      >
         ← 返回案件列表
       </Link>
       <div>
-        <h1 className="mb-4 text-xl font-bold">新增承攬案件</h1>
+        <h1 className="mb-4 text-xl font-bold md:text-2xl">新增承攬案件</h1>
         <div className="grid grid-cols-2 gap-3">
           {(Object.keys(emptyForm) as Array<keyof typeof emptyForm>).map((key) => (
             <input
@@ -135,7 +138,7 @@ export function AdminProjectsPage() {
               placeholder={key}
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:text-base"
             />
           ))}
         </div>
@@ -146,11 +149,13 @@ export function AdminProjectsPage() {
         >
           新增案件
         </button>
-        {createError && <p className="mt-2 text-sm text-result-poor">新增失敗：{createError}</p>}
+        {createError && (
+          <p className="mt-2 text-sm text-result-poor md:text-base">新增失敗：{createError}</p>
+        )}
       </div>
 
       <div>
-        <h2 className="mb-4 text-xl font-bold">案件列表</h2>
+        <h2 className="mb-4 text-xl font-bold md:text-2xl">案件列表</h2>
         {loading ? (
           <p className="text-slate-500">載入中…</p>
         ) : (
@@ -166,23 +171,27 @@ export function AdminProjectsPage() {
                           placeholder={key}
                           value={editForm[key]}
                           onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
-                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:text-base"
                         />
                       ))}
                     </div>
-                    {editError && <p className="text-sm text-result-poor">儲存失敗：{editError}</p>}
+                    {editError && (
+                      <p className="text-sm text-result-poor md:text-base">
+                        儲存失敗：{editError}
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => handleEditSave(project.id)}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
+                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white md:text-base"
                       >
                         儲存
                       </button>
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm md:text-base"
                       >
                         取消
                       </button>
@@ -197,7 +206,7 @@ export function AdminProjectsPage() {
                       <button
                         type="button"
                         onClick={() => startEdit(project)}
-                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                        className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
                       >
                         編輯
                       </button>
@@ -206,7 +215,7 @@ export function AdminProjectsPage() {
                         onChange={(e) =>
                           handleSetStatus(project.id, e.target.value as InspProject['status'])
                         }
-                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                        className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
                       >
                         <option value="active">進行中</option>
                         <option value="completed">已完成</option>
@@ -216,16 +225,19 @@ export function AdminProjectsPage() {
                   </div>
                 )}
                 {editingId !== project.id && (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-500 md:text-base">
                     {project.contractor} ・ {project.location}
                   </p>
                 )}
 
                 <div className="mt-3">
-                  <p className="mb-1 text-sm font-medium">指派填報人員</p>
+                  <p className="mb-1 text-sm font-medium md:text-base">指派填報人員</p>
                   <ul className="mb-2 space-y-1">
                     {(assignees[project.id] ?? []).map((assignee) => (
-                      <li key={assignee.id} className="flex items-center justify-between text-sm">
+                      <li
+                        key={assignee.id}
+                        className="flex items-center justify-between text-sm md:text-base"
+                      >
                         <span>{assignee.user_email}</span>
                         <button
                           type="button"
@@ -245,12 +257,12 @@ export function AdminProjectsPage() {
                       onChange={(e) =>
                         setNewAssigneeEmail((prev) => ({ ...prev, [project.id]: e.target.value }))
                       }
-                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
                     />
                     <button
                       type="button"
                       onClick={() => handleAssign(project.id)}
-                      className="rounded bg-slate-900 px-3 py-1 text-sm text-white"
+                      className="rounded bg-slate-900 px-3 py-1 text-sm text-white md:text-base"
                     >
                       指派
                     </button>

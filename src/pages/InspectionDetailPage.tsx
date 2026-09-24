@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { INSPECTION_ITEM_DEFINITIONS, RESULT_LABELS } from '@/constants/inspectionItems';
 import { saveInspectionEdits, type InspectionEditForm } from '@/lib/editInspection';
 import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@/lib/googleDrive';
+import { formatDateTime } from '@/lib/formatDateTime';
 import { generateInspectionPdf } from '@/lib/reports/generateInspectionPdf';
 import { addPhotosToInspection } from '@/lib/submitInspection';
 import type {
@@ -116,6 +117,20 @@ export function InspectionDetailPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    // 同一 session 內若已透過填報頁等流程授權過 Drive（isDriveEnabled），
+    // 進詳情頁不用使用者再點一次「顯示照片預覽」；若尚未授權，維持原本靜默授權
+    // 政策，不主動跳 OAuth 彈窗，交由使用者手動點擊按鈕觸發
+    if (!data || !user?.email) return;
+    if (Object.keys(thumbnails).length > 0) return;
+    const hasUploadedPhotos = data.photos.some(
+      (photo) => photo.upload_status === 'uploaded' && photo.drive_file_id,
+    );
+    if (!hasUploadedPhotos || !isDriveEnabled()) return;
+    handleShowThumbnails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   if (loading) return <div className="p-4 text-center text-slate-500">載入中…</div>;
   if (!data) return <div className="p-4 text-center text-slate-500">找不到紀錄</div>;
@@ -273,38 +288,38 @@ export function InspectionDetailPage() {
     <div className="mx-auto max-w-xl space-y-6 p-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold">{data.project.project_name}</h1>
+          <h1 className="text-xl font-bold md:text-2xl">{data.project.project_name}</h1>
           {isEditing && editForm ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
               <input
                 type="date"
                 value={editForm.inspection_date}
                 onChange={(e) => setEditForm({ ...editForm, inspection_date: e.target.value })}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
+                className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
               />
               <input
                 type="time"
                 value={editForm.inspection_time}
                 onChange={(e) => setEditForm({ ...editForm, inspection_time: e.target.value })}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
+                className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
               />
               <input
                 type="text"
                 placeholder="地點"
                 value={editForm.location}
                 onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
+                className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
               />
               <input
                 type="text"
                 placeholder="巡檢人員"
                 value={editForm.inspector}
                 onChange={(e) => setEditForm({ ...editForm, inspector: e.target.value })}
-                className="rounded border border-slate-300 px-2 py-1 text-sm"
+                className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
               />
             </div>
           ) : (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm font-medium text-slate-600 md:text-base">
               {data.inspection.inspection_date} {data.inspection.inspection_time} ・{' '}
               {data.inspection.location} ・ {data.inspection.inspector}
             </p>
@@ -317,7 +332,7 @@ export function InspectionDetailPage() {
               type="button"
               onClick={handleGenerateReport}
               disabled={generatingReport}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 md:text-base"
             >
               {generatingReport ? '產生中…' : '產生報表 PDF'}
             </button>
@@ -325,7 +340,7 @@ export function InspectionDetailPage() {
               <button
                 type="button"
                 onClick={startEditing}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm md:text-base"
               >
                 編輯
               </button>
@@ -333,11 +348,13 @@ export function InspectionDetailPage() {
           </div>
         )}
       </div>
-      {reportError && <p className="text-sm text-result-poor">報表產生失敗：{reportError}</p>}
+      {reportError && (
+        <p className="text-sm text-result-poor md:text-base">報表產生失敗：{reportError}</p>
+      )}
 
       <div>
-        <h2 className="mb-2 font-semibold">巡檢結果</h2>
-        <ul className="space-y-1 text-sm">
+        <h2 className="mb-2 font-semibold md:text-lg">巡檢結果</h2>
+        <ul className="space-y-1 text-sm md:text-base">
           {INSPECTION_ITEM_DEFINITIONS.map((def) => (
             <li key={def.item_no} className="flex items-center justify-between border-b border-slate-100 py-1">
               <span>
@@ -355,7 +372,7 @@ export function InspectionDetailPage() {
                       },
                     })
                   }
-                  className="rounded border border-slate-300 px-2 py-1 text-sm"
+                  className="rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
                 >
                   <option value="">未填寫</option>
                   {Object.entries(RESULT_LABELS).map(([value, label]) => (
@@ -379,7 +396,7 @@ export function InspectionDetailPage() {
       </div>
 
       {!isEditing && poorItems.length > 0 && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-result-poor">
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-result-poor md:text-base">
           <p className="font-medium">不良項目：</p>
           <ul className="list-inside list-disc">
             {poorItems.map((def) => (
@@ -392,17 +409,17 @@ export function InspectionDetailPage() {
       )}
 
       <div>
-        <h2 className="mb-2 font-semibold">備註</h2>
+        <h2 className="mb-2 font-semibold md:text-lg">備註</h2>
         {isEditing && editForm ? (
           <textarea
             value={editForm.note}
             onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
             rows={3}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="w-full rounded border border-slate-300 px-2 py-1 text-sm md:text-base"
           />
         ) : (
           data.inspection.note && (
-            <p className="whitespace-pre-wrap text-sm">{data.inspection.note}</p>
+            <p className="whitespace-pre-wrap text-sm md:text-base">{data.inspection.note}</p>
           )
         )}
       </div>
@@ -410,7 +427,7 @@ export function InspectionDetailPage() {
       {isEditing && (
         <div className="space-y-2">
           {saveError && (
-            <p className="text-sm text-result-poor">
+            <p className="text-sm text-result-poor md:text-base">
               儲存失敗：{saveError}（已成功的部分已儲存並留下修改紀錄，可重試尚未成功的部分）
             </p>
           )}
@@ -419,7 +436,7 @@ export function InspectionDetailPage() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 md:text-base"
             >
               {saving ? '儲存中…' : '儲存修改'}
             </button>
@@ -427,7 +444,7 @@ export function InspectionDetailPage() {
               type="button"
               onClick={cancelEditing}
               disabled={saving}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm md:text-base"
             >
               取消
             </button>
@@ -437,21 +454,23 @@ export function InspectionDetailPage() {
 
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-semibold">現場照片（{data.photos.length} 張）</h2>
+          <h2 className="font-semibold md:text-lg">現場照片（{data.photos.length} 張）</h2>
           {Object.keys(thumbnails).length === 0 && (
             <button
               type="button"
               onClick={handleShowThumbnails}
               disabled={loadingThumbnails}
-              className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50 md:text-sm"
             >
               {loadingThumbnails ? '載入中…' : '顯示照片預覽'}
             </button>
           )}
         </div>
-        {thumbnailError && <p className="mb-2 text-xs text-result-poor">{thumbnailError}</p>}
+        {thumbnailError && (
+          <p className="mb-2 text-xs text-result-poor md:text-sm">{thumbnailError}</p>
+        )}
         <div className="mb-3">
-          <label className="block text-xs text-slate-500">
+          <label className="block text-xs text-slate-500 md:text-sm">
             補上傳照片
             <input
               type="file"
@@ -462,20 +481,24 @@ export function InspectionDetailPage() {
                 handleAddPhotos(e.target.files);
                 e.target.value = '';
               }}
-              className="mt-1 block w-full text-sm"
+              className="mt-1 block w-full text-sm md:text-base"
             />
           </label>
-          {uploadingPhotos && <p className="mt-1 text-xs text-slate-500">上傳中…</p>}
-          {addPhotoError && <p className="mt-1 text-xs text-result-poor">{addPhotoError}</p>}
+          {uploadingPhotos && (
+            <p className="mt-1 text-xs text-slate-500 md:text-sm">上傳中…</p>
+          )}
+          {addPhotoError && (
+            <p className="mt-1 text-xs text-result-poor md:text-sm">{addPhotoError}</p>
+          )}
         </div>
         {deletePhotoError && (
-          <p className="mb-2 text-xs text-result-poor">刪除失敗：{deletePhotoError}</p>
+          <p className="mb-2 text-xs text-result-poor md:text-sm">刪除失敗：{deletePhotoError}</p>
         )}
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {data.photos.map((photo) => {
             const canDelete = role === 'admin' || (!!user && user.id === data.inspection.created_by);
             return (
-              <li key={photo.id} className="space-y-1 text-sm text-slate-500">
+              <li key={photo.id} className="space-y-1 text-sm text-slate-500 md:text-base">
                 {thumbnails[photo.id] ? (
                   <img
                     src={thumbnails[photo.id]}
@@ -483,11 +506,11 @@ export function InspectionDetailPage() {
                     className="aspect-square w-full rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
+                  <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400 md:text-sm">
                     尚未載入
                   </div>
                 )}
-                <p className="truncate text-xs">
+                <p className="truncate text-xs md:text-sm">
                   {photo.filename} —{' '}
                   {photo.upload_status === 'uploaded'
                     ? '已上傳'
@@ -500,7 +523,7 @@ export function InspectionDetailPage() {
                     type="button"
                     onClick={() => handleDeletePhoto(photo.id)}
                     disabled={deletingPhotoId === photo.id}
-                    className="text-xs text-result-poor underline disabled:opacity-50"
+                    className="text-xs text-result-poor underline disabled:opacity-50 md:text-sm"
                   >
                     {deletingPhotoId === photo.id ? '刪除中…' : '刪除'}
                   </button>
@@ -514,19 +537,21 @@ export function InspectionDetailPage() {
       {data.inspection.signature_file_id && (
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold">簽名</h2>
+            <h2 className="font-semibold md:text-lg">簽名</h2>
             {!signatureUrl && (
               <button
                 type="button"
                 onClick={handleShowSignature}
                 disabled={loadingSignature}
-                className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50"
+                className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50 md:text-sm"
               >
                 {loadingSignature ? '載入中…' : '顯示簽名預覽'}
               </button>
             )}
           </div>
-          {signatureError && <p className="mb-2 text-xs text-result-poor">{signatureError}</p>}
+          {signatureError && (
+            <p className="mb-2 text-xs text-result-poor md:text-sm">{signatureError}</p>
+          )}
           {signatureUrl && (
             <img
               src={signatureUrl}
@@ -537,14 +562,15 @@ export function InspectionDetailPage() {
         </div>
       )}
 
-      <p className="text-xs text-slate-400">
-        建立時間：{data.inspection.created_at} ・ 最後修改：{data.inspection.updated_at}
+      <p className="text-xs text-slate-400 md:text-sm">
+        建立時間：{formatDateTime(data.inspection.created_at)} ・ 最後修改：
+        {formatDateTime(data.inspection.updated_at)}
       </p>
 
       {role === 'admin' && editLogs.length > 0 && (
         <div>
-          <h2 className="mb-2 font-semibold">修改紀錄</h2>
-          <ul className="space-y-2 text-xs text-slate-500">
+          <h2 className="mb-2 font-semibold md:text-lg">修改紀錄</h2>
+          <ul className="space-y-2 text-xs text-slate-500 md:text-sm">
             {editLogs.map((log) => (
               <li key={log.id} className="rounded border border-slate-100 p-2">
                 <p>
@@ -552,7 +578,7 @@ export function InspectionDetailPage() {
                   {log.old_value ?? '（空白）'} → {log.new_value ?? '（空白）'}
                 </p>
                 <p className="mt-1">
-                  {editorEmails[log.edited_by] ?? log.edited_by} ・ {log.edited_at}
+                  {editorEmails[log.edited_by] ?? log.edited_by} ・ {formatDateTime(log.edited_at)}
                 </p>
               </li>
             ))}

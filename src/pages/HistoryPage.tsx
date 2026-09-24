@@ -48,9 +48,9 @@ export function HistoryPage() {
   if (loading) return <div className="p-4 text-center text-slate-500">載入中…</div>;
 
   return (
-    <div className="p-4">
-      <h1 className="mb-4 text-xl font-bold">巡檢紀錄</h1>
-      <label className="mb-4 flex items-center gap-2 text-sm">
+    <div className="mx-auto max-w-2xl p-4">
+      <h1 className="mb-4 text-xl font-bold md:text-2xl">巡檢紀錄</h1>
+      <label className="mb-4 flex items-center gap-2 text-sm md:text-base">
         <input type="checkbox" checked={onlyPoor} onChange={(e) => setOnlyPoor(e.target.checked)} />
         只顯示有「不良」的紀錄
       </label>
@@ -63,13 +63,15 @@ export function HistoryPage() {
             >
               <div className="flex items-center justify-between">
                 <p className="font-medium">{row.project?.project_name}</p>
-                <p className="text-sm text-slate-500">{row.inspection_date}</p>
+                <p className="text-sm text-slate-500 md:text-base">{row.inspection_date}</p>
               </div>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 md:text-base">
                 {row.location} ・ {row.inspector} ・ 照片 {row.photo_count} 張
               </p>
               {row.poor_count > 0 && (
-                <p className="text-sm font-medium text-result-poor">不良項目 {row.poor_count} 項</p>
+                <p className="text-sm font-medium text-result-poor md:text-base">
+                  不良項目 {row.poor_count} 項
+                </p>
               )}
             </Link>
           </li>

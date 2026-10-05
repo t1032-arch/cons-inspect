@@ -2,6 +2,11 @@
 
 時序記錄，只增不改（新內容一律附加在最上方，不回頭改寫舊條目）。完整需求／設計脈絡見 [workplan_v2.md](./workplan_v2.md)，Claude 工作規則見 [CLAUDE.md](./CLAUDE.md)，尚未完成的項目見 [TODO.md](./TODO.md)。
 
+## 2026-10-05
+
+- 修正手機填報只上傳 2 張照片、送出後變 5 張的問題：本機照片佇列 key 依案件固定（`draft-<projectId>`）且送出後從未清除，先前未送出或已上傳過的舊照片會被 `submitInspection` 一併建立紀錄（已上傳過的那些永遠停在「上傳中」）。`offlineQueue.ts` 新增 `deleteQueuedPhotos()`，送出／補上傳完成後清空佇列；送出時排除 `uploaded` 狀態的舊項目；`InspectionFormPage.tsx` 載入時把佇列照片還原到畫面，張數與編號和實際送出一致。該筆紀錄（`9df0079e`）多出的照片已由使用者在明細頁刪除、Drive 多餘檔案手動刪除後重新補上傳 2 張，確認正確。
+- 部署注意：本次第一次部署時本機落後 `origin/main` 6 個 commit，以舊程式碼覆蓋了正式環境，隨即 rebase 到最新 `origin/main` 後重新部署。部署前務必先 `git fetch` 確認本機與遠端同步。
+
 ## 2026-09-24
 
 - 照片預覽改為折衷方案：`InspectionDetailPage.tsx` 新增 `useEffect`，同一瀏覽器 session 內若已透過填報頁等流程取得 Drive 授權（`isDriveEnabled()`），進詳情頁會自動載入照片縮圖，不用使用者再點一次「顯示照片預覽」；若尚未授權則維持原本「不做靜默授權」政策，按鈕照常等使用者手動點擊觸發 OAuth。

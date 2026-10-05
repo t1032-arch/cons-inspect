@@ -74,6 +74,15 @@ export async function getPendingPhotos(inspectionLocalId: string) {
   return db.getAllFromIndex('queued_photos', 'by_inspection', inspectionLocalId);
 }
 
+// 送出完成後清掉該筆的本機照片佇列；inspectionLocalId 是依案件固定的（draft-<projectId>），
+// 不清掉的話下次同案件巡檢會把舊照片一起帶入，造成照片重複
+export async function deleteQueuedPhotos(inspectionLocalId: string) {
+  const db = await getDB();
+  const keys = await db.getAllKeysFromIndex('queued_photos', 'by_inspection', inspectionLocalId);
+  const tx = db.transaction('queued_photos', 'readwrite');
+  await Promise.all([...keys.map((key) => tx.store.delete(key)), tx.done]);
+}
+
 export async function updatePhotoStatus(
   localId: string,
   status: QueuedPhoto['status'],

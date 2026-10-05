@@ -8,6 +8,7 @@ import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad
 import { compressImage } from '@/lib/imageCompression';
 import {
   queuePhoto,
+  getPendingPhotos,
   saveDraftInspection,
   getDraftInspection,
   deleteDraftInspection,
@@ -86,6 +87,20 @@ export function InspectionFormPage() {
       if (formData?.items) setItems(formData.items);
       if (typeof formData?.note === 'string') setNote(formData.note);
       draftRestoredRef.current = true;
+
+      // 照片也還原：本機佇列裡的照片送出時都會一起上傳，畫面要顯示出來，
+      // 張數與檔名編號才會跟實際送出的一致（否則重新整理後看起來 2 張、實際送出 5 張）
+      const queued = (await getPendingPhotos(inspectionLocalId))
+        .filter((photo) => photo.status !== 'uploaded')
+        .sort((a, b) => a.createdAt - b.createdAt);
+      setPhotos(
+        queued.map((photo) => ({
+          localId: photo.localId,
+          previewUrl: URL.createObjectURL(photo.blob),
+          filename: photo.filename,
+          caption: photo.caption ?? '',
+        })),
+      );
 
       // 草稿沒有已填的巡檢人員時，改用標案管理平台 user_roles 的職稱（如「總務主任」）
       // 取代帳號名稱；user_roles 屬於另一個系統，讀不到就維持帳號名稱

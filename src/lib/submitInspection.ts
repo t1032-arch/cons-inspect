@@ -1,6 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import { ensureInspectionFolder, isDriveEnabled, uploadFileToDrive } from '@/lib/googleDrive';
-import { getPendingPhotos, processPhotoQueue, queuePhoto, type QueuedPhoto } from '@/lib/offlineQueue';
+import {
+  deleteQueuedPhotos,
+  getPendingPhotos,
+  processPhotoQueue,
+  queuePhoto,
+  type QueuedPhoto,
+} from '@/lib/offlineQueue';
 import { compressImage } from '@/lib/imageCompression';
 import type { InspectionResult } from '@/types';
 
@@ -69,7 +75,10 @@ export async function submitInspection({
 
   // 照片先在資料庫建立 pending 紀錄（一次性），UI 可依 upload_status 顯示「上傳中」；
   // 之後每次重試只更新既有列，不重複新增
-  const pendingPhotos = await getPendingPhotos(inspectionLocalId);
+  // 排除已上傳過的舊佇列項目，避免替它們再建一列永遠停在 pending 的照片紀錄
+  const pendingPhotos = (await getPendingPhotos(inspectionLocalId)).filter(
+    (photo) => photo.status !== 'uploaded',
+  );
   const photoRowIdByLocalId = new Map<string, string>();
 
   if (pendingPhotos.length > 0) {
@@ -115,6 +124,9 @@ export async function submitInspection({
       throw err;
     }
   });
+
+  // 本機佇列已處理完（失敗的照片在資料庫標為 failed，可於明細頁刪除後補傳），清掉避免下次重複帶入
+  await deleteQueuedPhotos(inspectionLocalId);
 
   return inspectionId;
 }
@@ -196,4 +208,6 @@ export async function addPhotosToInspection({
       throw err;
     }
   });
+
+  await deleteQueuedPhotos(inspectionLocalId);
 }

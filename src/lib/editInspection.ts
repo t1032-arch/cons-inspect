@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { ensureInspectionFolder, uploadFileToDrive } from '@/lib/googleDrive';
 import { INSPECTION_ITEM_DEFINITIONS, RESULT_LABELS } from '@/constants/inspectionItems';
 import type { InspInspection, InspInspectionItem, InspectionResult } from '@/types';
 
@@ -111,4 +112,36 @@ export async function saveInspectionEdits(
     const { error: logError } = await supabase.from('insp_inspection_edit_log').insert(logRow);
     if (logError) throw logError;
   }
+}
+
+interface UpdateSignatureParams {
+  inspectionId: string;
+  projectName: string;
+  inspectionDate: string;
+  signatureBlob: Blob;
+}
+
+// 已送出紀錄的補簽／重簽：簽名檔上傳到該筆紀錄的 Drive 資料夾後，透過 RPC
+// insp_update_signature 更新 signature_file_id 並寫入修改紀錄（見 migration 0003）。
+// admin 與填報者本人都能呼叫；舊簽名檔留在 Drive 不刪除，修改紀錄保留舊檔 ID 可追溯。
+// 呼叫前須已取得 Drive 授權。
+export async function updateInspectionSignature({
+  inspectionId,
+  projectName,
+  inspectionDate,
+  signatureBlob,
+}: UpdateSignatureParams): Promise<void> {
+  const folderName = `${inspectionDate}_巡檢紀錄${inspectionId.slice(0, 8)}`;
+  const folderId = await ensureInspectionFolder(projectName, folderName);
+  const signatureFileId = await uploadFileToDrive(
+    signatureBlob,
+    `signature_${Date.now()}.png`,
+    folderId,
+  );
+
+  const { error } = await supabase.rpc('insp_update_signature', {
+    p_inspection_id: inspectionId,
+    p_signature_file_id: signatureFileId,
+  });
+  if (error) throw error;
 }

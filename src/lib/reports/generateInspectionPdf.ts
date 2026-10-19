@@ -2,7 +2,13 @@
 import { pdf } from '@react-pdf/renderer';
 import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@/lib/googleDrive';
 import { InspectionPdfDocument, type PhotoWithUrl } from './InspectionPdfDocument';
-import type { InspInspection, InspInspectionItem, InspInspectionPhoto, InspProject } from '@/types';
+import type {
+  InspInspection,
+  InspInspectionEditLog,
+  InspInspectionItem,
+  InspInspectionPhoto,
+  InspProject,
+} from '@/types';
 
 interface GenerateInspectionPdfInput {
   inspection: InspInspection;
@@ -11,9 +17,16 @@ interface GenerateInspectionPdfInput {
   photos: InspInspectionPhoto[];
 }
 
+interface GenerateInspectionPdfOptions {
+  // 傳入才會在 PDF 末尾附上修改紀錄
+  editLogs?: InspInspectionEditLog[];
+  editorEmails?: Record<string, string>;
+}
+
 export async function generateInspectionPdf(
   data: GenerateInspectionPdfInput,
   userEmail: string,
+  { editLogs, editorEmails }: GenerateInspectionPdfOptions = {},
 ): Promise<void> {
   const { inspection, project, items, photos } = data;
   const objectUrls: string[] = [];
@@ -47,6 +60,8 @@ export async function generateInspectionPdf(
         items,
         photos: photosWithUrl,
         signatureUrl,
+        editLogs,
+        editorEmails,
       }),
     ).toBlob();
 

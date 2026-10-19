@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { INSPECTION_ITEM_DEFINITIONS, RESULT_LABELS } from '@/constants/inspectionItems';
-import { saveInspectionEdits, type InspectionEditForm } from '@/lib/editInspection';
+import {
+  saveInspectionEdits,
+  updateInspectionSignature,
+  type InspectionEditForm,
+} from '@/lib/editInspection';
+import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad';
 import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@/lib/googleDrive';
 import { formatDateTime } from '@/lib/formatDateTime';
 import { generateInspectionPdf } from '@/lib/reports/generateInspectionPdf';
@@ -55,8 +60,14 @@ export function InspectionDetailPage() {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [loadingSignature, setLoadingSignature] = useState(false);
   const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
+  const [newSignatureEmpty, setNewSignatureEmpty] = useState(true);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [saveSignatureError, setSaveSignatureError] = useState<string | null>(null);
+  const signatureHandle = useRef<SignaturePadHandle | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [includeEditLogs, setIncludeEditLogs] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [addPhotoError, setAddPhotoError] = useState<string | null>(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -135,6 +146,10 @@ export function InspectionDetailPage() {
   if (loading) return <div className="p-4 text-center text-slate-500">載入中…</div>;
   if (!data) return <div className="p-4 text-center text-slate-500">找不到紀錄</div>;
 
+  // 與 migration 0003 insp_update_signature 的權限判斷一致：admin 或填報者本人
+  const canEditSignature =
+    role === 'admin' || (!!user && user.id === data.inspection.created_by);
+
   const resultByItemNo = new Map(data.items.map((item) => [item.item_no, item.result]));
   const poorItems = INSPECTION_ITEM_DEFINITIONS.filter(
     (def) => resultByItemNo.get(def.item_no) === 'poor',
@@ -195,12 +210,58 @@ export function InspectionDetailPage() {
     }
   }
 
+  async function reloadEditLogs() {
+    if (role !== 'admin') return;
+    const { data: logs } = await supabase
+      .from('insp_inspection_edit_log')
+      .select('*')
+      .eq('inspection_id', id)
+      .order('edited_at', { ascending: false });
+    setEditLogs(logs ?? []);
+  }
+
+  // 補簽／重簽：admin 或填報者本人，見 updateInspectionSignature
+  async function handleSaveSignature() {
+    if (!data || !user?.email) return;
+    setSaveSignatureError(null);
+    setSavingSignature(true);
+    try {
+      const blob = await signatureHandle.current?.toPngBlob();
+      if (!blob) throw new Error('請先簽名');
+      if (!isDriveEnabled()) {
+        await requestDriveAccess(user.email);
+      }
+      await updateInspectionSignature({
+        inspectionId: data.inspection.id,
+        projectName: data.project.project_name,
+        inspectionDate: data.inspection.inspection_date,
+        signatureBlob: blob,
+      });
+      // 舊預覽已過期，清掉讓使用者重新載入新簽名
+      if (signatureUrl) URL.revokeObjectURL(signatureUrl);
+      setSignatureUrl(null);
+      setIsSigning(false);
+      setNewSignatureEmpty(true);
+      await load();
+      await reloadEditLogs();
+    } catch (err) {
+      setSaveSignatureError(err instanceof Error ? err.message : '簽名儲存失敗，請稍後再試');
+    } finally {
+      setSavingSignature(false);
+    }
+  }
+
   async function handleGenerateReport() {
     if (!data || !user?.email) return;
     setReportError(null);
     setGeneratingReport(true);
     try {
-      await generateInspectionPdf(data, user.email);
+      // 修改紀錄只有 admin 讀得到（RLS），一般使用者 editLogs 為空、也看不到勾選框
+      await generateInspectionPdf(
+        data,
+        user.email,
+        includeEditLogs && editLogs.length > 0 ? { editLogs, editorEmails } : {},
+      );
     } catch (err) {
       setReportError(err instanceof Error ? err.message : '報表產生失敗');
     } finally {
@@ -348,6 +409,17 @@ export function InspectionDetailPage() {
           </div>
         )}
       </div>
+      {!isEditing && role === 'admin' && editLogs.length > 0 && (
+        <label className="flex items-center justify-end gap-2 text-sm text-slate-600 md:text-base">
+          <input
+            type="checkbox"
+            checked={includeEditLogs}
+            onChange={(e) => setIncludeEditLogs(e.target.checked)}
+            className="h-4 w-4"
+          />
+          PDF 顯示修改紀錄
+        </label>
+      )}
       {reportError && (
         <p className="text-sm text-result-poor md:text-base">報表產生失敗：{reportError}</p>
       )}
@@ -534,33 +606,85 @@ export function InspectionDetailPage() {
         </ul>
       </div>
 
-      {data.inspection.signature_file_id && (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold md:text-lg">簽名</h2>
-            {!signatureUrl && (
-              <button
-                type="button"
-                onClick={handleShowSignature}
-                disabled={loadingSignature}
-                className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50 md:text-sm"
-              >
-                {loadingSignature ? '載入中…' : '顯示簽名預覽'}
-              </button>
-            )}
-          </div>
-          {signatureError && (
-            <p className="mb-2 text-xs text-result-poor md:text-sm">{signatureError}</p>
-          )}
-          {signatureUrl && (
-            <img
-              src={signatureUrl}
-              alt="簽名"
-              className="max-w-xs rounded-lg border border-slate-200 bg-white"
-            />
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-semibold md:text-lg">簽名</h2>
+          {!isSigning && (
+            <div className="flex gap-2">
+              {data.inspection.signature_file_id && !signatureUrl && (
+                <button
+                  type="button"
+                  onClick={handleShowSignature}
+                  disabled={loadingSignature}
+                  className="rounded-lg border border-slate-300 px-3 py-1 text-xs disabled:opacity-50 md:text-sm"
+                >
+                  {loadingSignature ? '載入中…' : '顯示簽名預覽'}
+                </button>
+              )}
+              {canEditSignature && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSaveSignatureError(null);
+                    setNewSignatureEmpty(true);
+                    setIsSigning(true);
+                  }}
+                  className="rounded-lg border border-slate-300 px-3 py-1 text-xs md:text-sm"
+                >
+                  {data.inspection.signature_file_id ? '重新簽名' : '補簽名'}
+                </button>
+              )}
+            </div>
           )}
         </div>
-      )}
+        {!data.inspection.signature_file_id && !isSigning && (
+          <p className="text-sm text-slate-500 md:text-base">尚未簽名</p>
+        )}
+        {signatureError && (
+          <p className="mb-2 text-xs text-result-poor md:text-sm">{signatureError}</p>
+        )}
+        {signatureUrl && !isSigning && (
+          <img
+            src={signatureUrl}
+            alt="簽名"
+            className="max-w-xs rounded-lg border border-slate-200 bg-white"
+          />
+        )}
+        {isSigning && (
+          <div className="space-y-2">
+            <SignaturePad handleRef={signatureHandle} onChange={setNewSignatureEmpty} />
+            {saveSignatureError && (
+              <p className="text-xs text-result-poor md:text-sm">{saveSignatureError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSaveSignature}
+                disabled={newSignatureEmpty || savingSignature}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 md:text-base"
+              >
+                {savingSignature ? '儲存中…' : '儲存簽名'}
+              </button>
+              <button
+                type="button"
+                onClick={() => signatureHandle.current?.clear()}
+                disabled={savingSignature}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 md:text-base"
+              >
+                清除
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSigning(false)}
+                disabled={savingSignature}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 md:text-base"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <p className="text-xs text-slate-400 md:text-sm">
         建立時間：{formatDateTime(data.inspection.created_at)} ・ 最後修改：

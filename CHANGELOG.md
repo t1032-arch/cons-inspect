@@ -2,6 +2,14 @@
 
 時序記錄，只增不改（新內容一律附加在最上方，不回頭改寫舊條目）。完整需求／設計脈絡見 [workplan_v2.md](./workplan_v2.md)，Claude 工作規則見 [CLAUDE.md](./CLAUDE.md)，尚未完成的項目見 [TODO.md](./TODO.md)。
 
+## 2026-10-19
+
+- 新增已送出紀錄的補簽／重簽（使用者回報：電腦上送出時沒簽名，回到手機找不到補簽的地方；原因是送出不強制簽名，詳細頁的簽名區塊只在已有簽名時才顯示，編輯功能也不含簽名）。
+  - 新增 migration `0003_inspection_update_signature.sql`：`security definer` RPC `insp_update_signature`，admin 或該筆紀錄填報者（`created_by`）可呼叫，只更新 `signature_file_id` 並於同一交易寫入 `insp_inspection_edit_log`（記錄新舊 Drive 檔案 ID；舊簽名檔不刪除）。另收回 `anon` 的 execute（Supabase default privileges 會直接 grant 給 anon，`revoke ... from public` 收不到）。已透過 Supabase SQL Editor 套用到正式資料庫並查詢確認權限。
+  - `editInspection.ts` 新增 `updateInspectionSignature()`；`InspectionDetailPage.tsx` 簽名區塊一律顯示（未簽名顯示「尚未簽名」），加上「補簽名／重新簽名」按鈕與簽名板。
+- 報表 PDF 可選擇附上修改紀錄：詳細頁新增「PDF 顯示修改紀錄」勾選框（預設不勾，僅 admin 且有修改紀錄時顯示），勾選後 `InspectionPdfDocument.tsx` 於末尾印出「修改紀錄」區塊；簽名紀錄中的 Drive 檔案 ID 在 PDF 上隱藏。
+- 兩項皆已部署到正式環境，`npx tsc -b` 通過；尚未在手機／瀏覽器上實際操作驗證補簽與 PDF 版面。
+
 ## 2026-10-05
 
 - 修正手機填報只上傳 2 張照片、送出後變 5 張的問題：本機照片佇列 key 依案件固定（`draft-<projectId>`）且送出後從未清除，先前未送出或已上傳過的舊照片會被 `submitInspection` 一併建立紀錄（已上傳過的那些永遠停在「上傳中」）。`offlineQueue.ts` 新增 `deleteQueuedPhotos()`，送出／補上傳完成後清空佇列；送出時排除 `uploaded` 狀態的舊項目；`InspectionFormPage.tsx` 載入時把佇列照片還原到畫面，張數與編號和實際送出一致。該筆紀錄（`9df0079e`）多出的照片已由使用者在明細頁刪除、Drive 多餘檔案手動刪除後重新補上傳 2 張，確認正確。

@@ -1,7 +1,14 @@
 // 巡檢報表 PDF 版面定義，見 workplan_v2.md（匯出巡檢紀錄）
 import { Document, Font, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import { INSPECTION_ITEM_DEFINITIONS, RESULT_LABELS } from '@/constants/inspectionItems';
-import type { InspInspection, InspInspectionItem, InspInspectionPhoto, InspProject } from '@/types';
+import { formatDateTime } from '@/lib/formatDateTime';
+import type {
+  InspInspection,
+  InspInspectionEditLog,
+  InspInspectionItem,
+  InspInspectionPhoto,
+  InspProject,
+} from '@/types';
 
 // 字型檔放在 public/fonts，用本機路徑載入避免依賴外部字型 CDN 的可用性
 Font.register({
@@ -120,7 +127,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  editLogRow: {
+    borderBottom: '1px solid #f1f5f9',
+    paddingVertical: 3,
+  },
+  editLogMeta: {
+    fontSize: 8,
+    color: '#64748b',
+    marginTop: 1,
+  },
 });
+
+// 簽名修改紀錄的值帶有 Drive 檔案 ID（見 migration 0003），報表上只留「補簽／重新簽名」等文字
+function stripDriveFileId(value: string | null): string | null {
+  return value ? value.replace(/（Drive 檔案 [^）]*）/g, '') : value;
+}
 
 export interface PhotoWithUrl {
   photo: InspInspectionPhoto;
@@ -133,6 +154,9 @@ interface InspectionPdfDocumentProps {
   items: InspInspectionItem[];
   photos: PhotoWithUrl[];
   signatureUrl: string | null;
+  // 有傳入才印出「修改紀錄」區塊（由使用者在詳細頁勾選決定）
+  editLogs?: InspInspectionEditLog[];
+  editorEmails?: Record<string, string>;
 }
 
 export function InspectionPdfDocument({
@@ -141,6 +165,8 @@ export function InspectionPdfDocument({
   items,
   photos,
   signatureUrl,
+  editLogs,
+  editorEmails = {},
 }: InspectionPdfDocumentProps) {
   const resultByItemNo = new Map(items.map((item) => [item.item_no, item.result]));
   const poorItems = INSPECTION_ITEM_DEFINITIONS.filter(
@@ -257,6 +283,24 @@ export function InspectionPdfDocument({
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {editLogs && editLogs.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>修改紀錄（{editLogs.length} 筆）</Text>
+            {editLogs.map((log) => (
+              <View key={log.id} style={styles.editLogRow} wrap={false}>
+                <Text>
+                  <Text style={{ fontWeight: 700 }}>{log.field_changed}</Text>：
+                  {stripDriveFileId(log.old_value) ?? '（空白）'} →{' '}
+                  {stripDriveFileId(log.new_value) ?? '（空白）'}
+                </Text>
+                <Text style={styles.editLogMeta}>
+                  {editorEmails[log.edited_by] ?? log.edited_by} ・ {formatDateTime(log.edited_at)}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
       </Page>

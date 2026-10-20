@@ -6,6 +6,7 @@ import { INSPECTION_ITEM_DEFINITIONS } from '@/constants/inspectionItems';
 import { InspectionItemCard } from '@/components/InspectionItemCard';
 import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad';
 import { compressImage } from '@/lib/imageCompression';
+import { getClipboardImageFiles, isEditableTarget } from '@/lib/clipboardImages';
 import {
   queuePhoto,
   getPendingPhotos,
@@ -36,8 +37,10 @@ export function InspectionFormPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [basicInfo, setBasicInfo] = useState<BasicInfo>(() => {
     const now = new Date();
+    // 用本地日期，toISOString() 是 UTC，台灣 00:00–07:59 會變成前一天
+    const pad = (n: number) => String(n).padStart(2, '0');
     return {
-      inspection_date: now.toISOString().slice(0, 10),
+      inspection_date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
       inspection_time: now.toTimeString().slice(0, 5),
       location: '',
       // 先用帳號帶預設值，稍後在還原草稿的 effect 裡試著換成標案管理平台的職稱（user_roles.display_name）
@@ -48,6 +51,10 @@ export function InspectionFormPage() {
   // 預設「無異常」，多數情況不用再手動打字；有問題時使用者自行改掉
   const [note, setNote] = useState('無異常');
   const [photos, setPhotos] = useState<PendingPhoto[]>([]);
+  const [addingPhotos, setAddingPhotos] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  // 處理中鎖定：檔名編號依 photos.length 計算，連續快速貼上／選檔會拿到同一個編號
+  const addingPhotosRef = useRef(false);
   const [signatureEmpty, setSignatureEmpty] = useState(true);
   const [driveReady, setDriveReady] = useState(isDriveEnabled());
   const [submitting, setSubmitting] = useState(false);
@@ -147,39 +154,88 @@ export function InspectionFormPage() {
   const allItemsAnswered = INSPECTION_ITEM_DEFINITIONS.every((def) => items[def.item_no]);
   const basicInfoValid =
     basicInfo.inspection_date && basicInfo.location && basicInfo.inspector;
+  // driveReady 只在授權/被擋時更新，另外即時檢查是否過期或重新整理後已失效
+  const driveActive = driveReady && isDriveEnabled();
+  // 有照片或簽名卻沒有有效授權時，送出會讓照片標為失敗、簽名被略過，因此擋下送出
+  const driveMissingForSubmit = (photos.length > 0 || !signatureEmpty) && !driveActive;
 
-  async function handlePhotoSelect(fileList: FileList | null) {
-    if (!fileList) return;
+  async function handlePhotoSelect(fileList: FileList | File[] | null) {
+    if (!fileList || fileList.length === 0 || addingPhotosRef.current) return;
+    addingPhotosRef.current = true;
+    setAddingPhotos(true);
+    setPhotoError(null);
     const newPhotos: PendingPhoto[] = [];
-    for (const file of Array.from(fileList)) {
-      const compressed = await compressImage(file);
-      const filename = `photo_${String(photos.length + newPhotos.length + 1).padStart(2, '0')}.jpg`;
-      const localId = crypto.randomUUID();
-      await queuePhoto({
-        localId,
-        inspectionLocalId,
-        blob: compressed,
-        filename,
-        caption: null,
-        status: 'pending',
-        retries: 0,
-        createdAt: Date.now(),
-      });
-      newPhotos.push({
-        localId,
-        previewUrl: URL.createObjectURL(compressed),
-        filename,
-        caption: '',
-      });
+    try {
+      for (const file of Array.from(fileList)) {
+        const compressed = await compressImage(file);
+        const filename = `photo_${String(photos.length + newPhotos.length + 1).padStart(2, '0')}.jpg`;
+        const localId = crypto.randomUUID();
+        await queuePhoto({
+          localId,
+          inspectionLocalId,
+          blob: compressed,
+          filename,
+          caption: null,
+          status: 'pending',
+          retries: 0,
+          createdAt: Date.now(),
+        });
+        newPhotos.push({
+          localId,
+          previewUrl: URL.createObjectURL(compressed),
+          filename,
+          caption: '',
+        });
+      }
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : '照片處理失敗，請換一張圖片再試');
+    } finally {
+      // 已成功落地佇列的照片照樣顯示，與送出時實際上傳的張數一致
+      setPhotos((prev) => [...prev, ...newPhotos]);
+      addingPhotosRef.current = false;
+      setAddingPhotos(false);
     }
-    setPhotos((prev) => [...prev, ...newPhotos]);
   }
+
+  // 選檔／貼上前先確認已啟用照片功能（Drive 授權，含過期），未啟用就不收，提示使用者先點「啟用照片功能」；
+  // 不在此時自動跳 OAuth，維持「使用者主動點擊才授權」的原則
+  function ensureDriveForPhotos(): boolean {
+    if (isDriveEnabled()) return true;
+    setDriveReady(false);
+    setPhotoError('尚未啟用照片功能（或授權已過期），請先點上方「啟用照片功能」再加入照片');
+    return false;
+  }
+
+  function handlePastedFiles(files: File[]) {
+    if (!ensureDriveForPhotos()) return;
+    handlePhotoSelect(files);
+  }
+
+  // 貼上事件的 listener 只註冊一次，透過 ref 呼叫最新的處理函式，避免拿到舊的 photos
+  const handlePastedFilesRef = useRef(handlePastedFiles);
+  handlePastedFilesRef.current = handlePastedFiles;
+
+  // 只在照片步驟接受 Ctrl+V 貼上圖片；游標在文字欄位時不攔截
+  useEffect(() => {
+    if (step !== 'photos') return;
+    function onPaste(event: ClipboardEvent) {
+      if (isEditableTarget(event.target)) return;
+      const files = getClipboardImageFiles(event);
+      if (files.length === 0) return;
+      event.preventDefault();
+      handlePastedFilesRef.current(files);
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [step]);
 
   async function handleEnableDrive() {
     if (!user?.email) return;
     try {
       await requestDriveAccess(user.email);
       setDriveReady(true);
+      setPhotoError(null);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Drive 授權失敗');
     }
@@ -187,6 +243,12 @@ export function InspectionFormPage() {
 
   async function handleSubmit() {
     if (!project || !user) return;
+    // 停在檢查頁期間授權可能剛好過期，送出當下再確認一次
+    if ((photos.length > 0 || !signatureEmpty) && !isDriveEnabled()) {
+      setDriveReady(false);
+      setError('照片功能授權已失效，請先點「啟用照片功能」再送出');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -296,7 +358,7 @@ export function InspectionFormPage() {
       {step === 'photos' && (
         <div className="space-y-4">
           <h1 className="text-xl font-bold md:text-2xl">現場照片</h1>
-          {!driveReady && (
+          {!driveActive && (
             <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 md:text-base">
               尚未啟用照片上傳功能。
               <button
@@ -312,9 +374,20 @@ export function InspectionFormPage() {
             type="file"
             accept="image/*"
             multiple
-            onChange={(e) => handlePhotoSelect(e.target.files)}
+            disabled={addingPhotos}
+            onChange={(e) => {
+              // 清空 value，被擋下後使用者授權完再選同一批檔案時 onChange 才會再次觸發
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0 && ensureDriveForPhotos()) handlePhotoSelect(files);
+              e.target.value = '';
+            }}
             className="block w-full text-sm md:text-base"
           />
+          <p className="text-xs text-slate-500 md:text-sm">
+            電腦版也可以直接按 Ctrl+V 貼上複製的圖片或截圖
+          </p>
+          {addingPhotos && <p className="text-xs text-slate-500 md:text-sm">處理中…</p>}
+          {photoError && <p className="text-xs text-result-poor md:text-sm">{photoError}</p>}
           <div className="grid grid-cols-3 gap-2">
             {photos.map((photo) => (
               <img
@@ -354,10 +427,22 @@ export function InspectionFormPage() {
             <li>照片：{photos.length} 張</li>
             <li>簽名：{signatureEmpty ? '尚未簽名' : '已簽名'}</li>
           </ul>
+          {driveMissingForSubmit && (
+            <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 md:text-base">
+              照片功能尚未啟用或授權已過期，照片與簽名將無法存檔，請先啟用再送出。
+              <button
+                type="button"
+                onClick={handleEnableDrive}
+                className="ml-2 underline"
+              >
+                啟用照片功能
+              </button>
+            </div>
+          )}
           {error && <p className="text-result-poor">{error}</p>}
           <button
             type="button"
-            disabled={!basicInfoValid || !allItemsAnswered || submitting}
+            disabled={!basicInfoValid || !allItemsAnswered || submitting || driveMissingForSubmit}
             onClick={handleSubmit}
             className="w-full rounded-lg bg-slate-900 px-4 py-3 text-lg font-medium text-white disabled:opacity-40"
           >

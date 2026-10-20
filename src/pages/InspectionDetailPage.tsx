@@ -13,6 +13,7 @@ import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@
 import { formatDateTime } from '@/lib/formatDateTime';
 import { generateInspectionPdf } from '@/lib/reports/generateInspectionPdf';
 import { addPhotosToInspection } from '@/lib/submitInspection';
+import { getClipboardImageFiles, isEditableTarget } from '@/lib/clipboardImages';
 import type {
   InspInspection,
   InspInspectionEditLog,
@@ -21,6 +22,11 @@ import type {
   InspProject,
   InspUserRole,
 } from '@/types';
+
+interface PastedPhoto {
+  file: File;
+  previewUrl: string;
+}
 
 interface DetailData {
   inspection: InspInspection;
@@ -72,6 +78,9 @@ export function InspectionDetailPage() {
   const [addPhotoError, setAddPhotoError] = useState<string | null>(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [deletePhotoError, setDeletePhotoError] = useState<string | null>(null);
+  // 貼上的圖片先暫存預覽，使用者按確認才上傳，避免誤按 Ctrl+V 直接寫進正式紀錄
+  const [pastedPhotos, setPastedPhotos] = useState<PastedPhoto[]>([]);
+  const pastedPhotosRef = useRef<PastedPhoto[]>([]);
 
   async function load() {
     if (!id) return;
@@ -142,6 +151,29 @@ export function InspectionDetailPage() {
     handleShowThumbnails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
+  useEffect(() => {
+    pastedPhotosRef.current = pastedPhotos;
+  }, [pastedPhotos]);
+
+  useEffect(() => {
+    // 游標在文字欄位（例如編輯模式的備註）時不攔截，讓文字照常貼上
+    function onPaste(event: ClipboardEvent) {
+      if (isEditableTarget(event.target)) return;
+      const files = getClipboardImageFiles(event);
+      if (files.length === 0) return;
+      event.preventDefault();
+      setPastedPhotos((prev) => [
+        ...prev,
+        ...files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
+      ]);
+    }
+    document.addEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('paste', onPaste);
+      pastedPhotosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+    };
+  }, []);
 
   if (loading) return <div className="p-4 text-center text-slate-500">載入中…</div>;
   if (!data) return <div className="p-4 text-center text-slate-500">找不到紀錄</div>;
@@ -269,7 +301,19 @@ export function InspectionDetailPage() {
     }
   }
 
-  async function handleAddPhotos(fileList: FileList | null) {
+  function clearPastedPhotos() {
+    pastedPhotos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+    setPastedPhotos([]);
+  }
+
+  async function handleUploadPastedPhotos() {
+    const files = pastedPhotos.map((photo) => photo.file);
+    await handleAddPhotos(files);
+    // 不論成敗都清掉暫存：addPhotosToInspection 可能已部分落地佇列，重傳會重複；失敗訊息由 addPhotoError 顯示
+    clearPastedPhotos();
+  }
+
+  async function handleAddPhotos(fileList: FileList | File[] | null) {
     if (!fileList || fileList.length === 0 || !data || !user?.email) return;
     setAddPhotoError(null);
     setUploadingPhotos(true);
@@ -556,6 +600,45 @@ export function InspectionDetailPage() {
               className="mt-1 block w-full text-sm md:text-base"
             />
           </label>
+          <p className="mt-1 text-xs text-slate-500 md:text-sm">
+            電腦版也可以直接按 Ctrl+V 貼上複製的圖片或截圖
+          </p>
+          {pastedPhotos.length > 0 && (
+            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-2">
+              <p className="text-xs text-slate-600 md:text-sm">
+                已貼上 {pastedPhotos.length} 張，確認後才會上傳
+                {!isDriveEnabled() && '（尚未啟用照片功能，按上傳時會先要求授權）'}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {pastedPhotos.map((photo) => (
+                  <img
+                    key={photo.previewUrl}
+                    src={photo.previewUrl}
+                    alt="貼上的圖片"
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleUploadPastedPhotos}
+                  disabled={uploadingPhotos}
+                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 md:text-base"
+                >
+                  上傳 {pastedPhotos.length} 張
+                </button>
+                <button
+                  type="button"
+                  onClick={clearPastedPhotos}
+                  disabled={uploadingPhotos}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 md:text-base"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
           {uploadingPhotos && (
             <p className="mt-1 text-xs text-slate-500 md:text-sm">上傳中…</p>
           )}

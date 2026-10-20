@@ -26,9 +26,11 @@ const ROOT_FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID;
 
 let tokenClient: any = null;
 let accessToken: string | null = null;
+// GIS token 約 1 小時過期；只看「拿過 token」會讓過期後的上傳全部 401
+let accessTokenExpiresAt = 0;
 
 export function isDriveEnabled() {
-  return accessToken !== null;
+  return accessToken !== null && Date.now() < accessTokenExpiresAt;
 }
 
 export function requestDriveAccess(userEmail: string): Promise<string> {
@@ -37,13 +39,16 @@ export function requestDriveAccess(userEmail: string): Promise<string> {
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
       scope: DRIVE_SCOPE,
       hint: userEmail,
-      callback: (response: { access_token?: string; error?: string }) => {
+      callback: (response: { access_token?: string; expires_in?: number | string; error?: string }) => {
         tokenClient = null; // 重置，確保下次可重新開啟授權流程
         if (response.error || !response.access_token) {
           reject(new Error(response.error ?? '授權失敗'));
           return;
         }
         accessToken = response.access_token;
+        // 提早 5 分鐘視為過期，保留送出時上傳照片的時間；沒回傳 expires_in 時以 1 小時計
+        const expiresInSec = Number(response.expires_in) || 3600;
+        accessTokenExpiresAt = Date.now() + (expiresInSec - 300) * 1000;
         resolve(accessToken);
       },
     });

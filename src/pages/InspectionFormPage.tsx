@@ -47,6 +47,9 @@ export function InspectionFormPage() {
       inspector: user?.email?.split('@')[0] ?? '',
     };
   });
+  // 記錄使用者是否手動改過日期／時間：開表單就會自動存草稿，沒改過的預設值也會被存起來，
+  // 隔天還原草稿時若照抄就會停在舊日期，因此沒改過的一律改用現在時間
+  const [dateTimeTouched, setDateTimeTouched] = useState({ date: false, time: false });
   const [items, setItems] = useState<Record<number, InspectionResult>>({});
   // 預設「無異常」，多數情況不用再手動打字；有問題時使用者自行改掉
   const [note, setNote] = useState('無異常');
@@ -88,9 +91,24 @@ export function InspectionFormPage() {
     draftRestoredRef.current = false;
     getDraftInspection(inspectionLocalId).then(async (draft) => {
       const formData = draft?.formData as
-        | { basicInfo?: BasicInfo; items?: Record<number, InspectionResult>; note?: string }
+        | {
+            basicInfo?: BasicInfo;
+            dateTimeTouched?: { date: boolean; time: boolean };
+            items?: Record<number, InspectionResult>;
+            note?: string;
+          }
         | undefined;
-      if (formData?.basicInfo) setBasicInfo(formData.basicInfo);
+      if (formData?.basicInfo) {
+        const draftInfo = formData.basicInfo;
+        // 舊版草稿沒有這個欄位，視為沒改過
+        const touched = formData.dateTimeTouched ?? { date: false, time: false };
+        setBasicInfo((prev) => ({
+          ...draftInfo,
+          inspection_date: touched.date ? draftInfo.inspection_date : prev.inspection_date,
+          inspection_time: touched.time ? draftInfo.inspection_time : prev.inspection_time,
+        }));
+        setDateTimeTouched(touched);
+      }
       if (formData?.items) setItems(formData.items);
       if (typeof formData?.note === 'string') setNote(formData.note);
       draftRestoredRef.current = true;
@@ -137,10 +155,10 @@ export function InspectionFormPage() {
     saveDraftInspection({
       localId: inspectionLocalId,
       projectId: projectId ?? '',
-      formData: { basicInfo, items, note },
+      formData: { basicInfo, dateTimeTouched, items, note },
       updatedAt: Date.now(),
     });
-  }, [inspectionLocalId, projectId, basicInfo, items, note]);
+  }, [inspectionLocalId, projectId, basicInfo, dateTimeTouched, items, note]);
 
   const step = STEPS[stepIndex];
 
@@ -292,7 +310,10 @@ export function InspectionFormPage() {
             <input
               type="date"
               value={basicInfo.inspection_date}
-              onChange={(e) => setBasicInfo({ ...basicInfo, inspection_date: e.target.value })}
+              onChange={(e) => {
+                setBasicInfo({ ...basicInfo, inspection_date: e.target.value });
+                setDateTimeTouched((prev) => ({ ...prev, date: true }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 py-2 pl-3 pr-4"
             />
           </label>
@@ -301,7 +322,10 @@ export function InspectionFormPage() {
             <input
               type="time"
               value={basicInfo.inspection_time}
-              onChange={(e) => setBasicInfo({ ...basicInfo, inspection_time: e.target.value })}
+              onChange={(e) => {
+                setBasicInfo({ ...basicInfo, inspection_time: e.target.value });
+                setDateTimeTouched((prev) => ({ ...prev, time: true }));
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 py-2 pl-3 pr-4"
             />
           </label>

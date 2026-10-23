@@ -10,6 +10,7 @@
   - 新增 `src/components/ResultBadge.tsx`：巡檢結果以淡底圓角色塊顯示（良好／尚可／不良／不適用沿用 `result-*` 語意色），用於詳情頁。
   - 列表卡片：新增 `src/constants/ui.ts` 的 `LIST_CARD_CLASS`，案件列表、案件詳情的巡檢紀錄、巡檢紀錄頁共用。邊框加深＋`shadow-sm`；hover 改為主色淡藍底＋主色邊框＋上浮＋`shadow-md`（原 `hover:bg-slate-50` 在白底上幾乎看不出差異）。
 - `npx tsc -b`、`npm run build` 通過；以 `vite preview`（限 localhost、port 5173）讓使用者實際登入檢視後確認。
+- 部署後補漏：詳情頁「上傳 N 張」（10/20 貼上照片）與「儲存簽名」（10/19 補簽）兩個按鈕在 9/24 調整之後才新增，仍是 `bg-slate-900`，同步改為主色。
 
 ## 2026-10-20
 

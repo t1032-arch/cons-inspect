@@ -619,7 +619,7 @@ export function InspectionDetailPage() {
                   type="button"
                   onClick={handleUploadPastedPhotos}
                   disabled={uploadingPhotos}
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 md:text-base"
+                  className="rounded-lg bg-primary px-3 py-1.5 text-sm text-white hover:bg-primary-dark disabled:opacity-50 md:text-base"
                 >
                   上傳 {pastedPhotos.length} 張
                 </button>
@@ -739,7 +739,7 @@ export function InspectionDetailPage() {
                 type="button"
                 onClick={handleSaveSignature}
                 disabled={newSignatureEmpty || savingSignature}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 md:text-base"
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm text-white hover:bg-primary-dark disabled:opacity-50 md:text-base"
               >
                 {savingSignature ? '儲存中…' : '儲存簽名'}
               </button>

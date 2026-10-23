@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { LIST_CARD_CLASS } from '@/constants/ui';
 import type { InspProject } from '@/types';
 
 interface InspectionRow {
@@ -72,7 +73,7 @@ export function ProjectDetailPage() {
         </div>
         <Link
           to={`/projects/${project.id}/inspect`}
-          className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white md:text-base"
+          className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-dark md:text-base"
         >
           新增巡檢紀錄
         </Link>
@@ -86,7 +87,7 @@ export function ProjectDetailPage() {
             <li key={row.id}>
               <Link
                 to={`/inspections/${row.id}`}
-                className="block rounded-lg border border-slate-200 p-4 hover:bg-slate-50"
+                className={LIST_CARD_CLASS}
               >
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{row.inspection_date}</p>
@@ -96,9 +97,9 @@ export function ProjectDetailPage() {
                   {row.location} ・ {row.inspector}
                 </p>
                 {row.poor_count > 0 && (
-                  <p className="text-sm font-medium text-result-poor md:text-base">
+                  <span className="mt-1 inline-block rounded-full bg-result-poor/10 px-2.5 py-0.5 text-xs font-medium text-result-poor md:text-sm">
                     不良項目 {row.poor_count} 項
-                  </p>
+                  </span>
                 )}
               </Link>
             </li>

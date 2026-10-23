@@ -145,7 +145,7 @@ export function AdminProjectsPage() {
         <button
           type="button"
           onClick={handleCreate}
-          className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-white"
+          className="mt-3 rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary-dark"
         >
           新增案件
         </button>
@@ -184,7 +184,7 @@ export function AdminProjectsPage() {
                       <button
                         type="button"
                         onClick={() => handleEditSave(project.id)}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white md:text-base"
+                        className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-dark md:text-base"
                       >
                         儲存
                       </button>
@@ -262,7 +262,7 @@ export function AdminProjectsPage() {
                     <button
                       type="button"
                       onClick={() => handleAssign(project.id)}
-                      className="rounded bg-slate-900 px-3 py-1 text-sm text-white md:text-base"
+                      className="rounded bg-primary px-3 py-1 text-sm text-white hover:bg-primary-dark md:text-base"
                     >
                       指派
                     </button>

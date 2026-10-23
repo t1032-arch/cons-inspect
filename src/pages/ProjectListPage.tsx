@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { LIST_CARD_CLASS } from '@/constants/ui';
 import { useAuth } from '@/lib/AuthContext';
 import type { InspProject } from '@/types';
 
@@ -63,7 +64,7 @@ export function ProjectListPage() {
             <li key={project.id}>
               <Link
                 to={`/projects/${project.id}`}
-                className="block rounded-lg border border-slate-200 p-4 hover:bg-slate-50"
+                className={LIST_CARD_CLASS}
               >
                 <p className="font-medium text-slate-900">{project.project_name}</p>
                 <p className="text-sm text-slate-500 md:text-base">

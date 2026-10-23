@@ -4,6 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        // 品牌主色：取代原本全站按鈕/連結統一用的 slate-900（近黑），
+        // 增加辨識度並用於導覽列當前頁面標示
+        primary: {
+          DEFAULT: '#2563eb',
+          dark: '#1d4ed8',
+        },
         // 巡檢結果語意色，對應 workplan_v2.md 第11節
         result: {
           good: '#16a34a', // 良好：正向色

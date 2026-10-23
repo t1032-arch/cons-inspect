@@ -468,7 +468,7 @@ export function InspectionFormPage() {
             type="button"
             disabled={!basicInfoValid || !allItemsAnswered || submitting || driveMissingForSubmit}
             onClick={handleSubmit}
-            className="w-full rounded-lg bg-slate-900 px-4 py-3 text-lg font-medium text-white disabled:opacity-40"
+            className="w-full rounded-lg bg-primary px-4 py-3 text-lg font-medium text-white hover:bg-primary-dark disabled:opacity-40"
           >
             {submitting ? '送出中…' : '送出巡檢紀錄'}
           </button>
@@ -488,7 +488,7 @@ export function InspectionFormPage() {
           <button
             type="button"
             onClick={goNext}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-white"
+            className="rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary-dark"
           >
             下一步
           </button>

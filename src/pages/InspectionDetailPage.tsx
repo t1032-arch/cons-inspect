@@ -11,6 +11,7 @@ import {
 import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad';
 import { fetchDriveFileAsObjectUrl, isDriveEnabled, requestDriveAccess } from '@/lib/googleDrive';
 import { formatDateTime } from '@/lib/formatDateTime';
+import { ResultBadge } from '@/components/ResultBadge';
 import { generateInspectionPdf } from '@/lib/reports/generateInspectionPdf';
 import { addPhotosToInspection } from '@/lib/submitInspection';
 import { getClipboardImageFiles, isEditableTarget } from '@/lib/clipboardImages';
@@ -498,13 +499,7 @@ export function InspectionDetailPage() {
                   ))}
                 </select>
               ) : (
-                <span
-                  className={
-                    resultByItemNo.get(def.item_no) === 'poor' ? 'font-medium text-result-poor' : ''
-                  }
-                >
-                  {RESULT_LABELS[resultByItemNo.get(def.item_no) ?? ''] ?? '未填寫'}
-                </span>
+                <ResultBadge result={resultByItemNo.get(def.item_no)} />
               )}
             </li>
           ))}
@@ -552,7 +547,7 @@ export function InspectionDetailPage() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 md:text-base"
+              className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-dark disabled:opacity-50 md:text-base"
             >
               {saving ? '儲存中…' : '儲存修改'}
             </button>

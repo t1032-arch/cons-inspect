@@ -2,6 +2,15 @@
 
 時序記錄，只增不改（新內容一律附加在最上方，不回頭改寫舊條目）。完整需求／設計脈絡見 [workplan_v2.md](./workplan_v2.md)，Claude 工作規則見 [CLAUDE.md](./CLAUDE.md)，尚未完成的項目見 [TODO.md](./TODO.md)。
 
+## 2026-10-23
+
+- 美感調整（2026-09-24 使用者反饋，當時在另一台電腦未提交，本次套回最新 `origin/main` 後完成）：
+  - 品牌主色：`tailwind.config.js` 新增 `primary`（`#2563eb`／`primary-dark` `#1d4ed8`），取代全站按鈕原本的 `bg-slate-900`（登入、新增巡檢、下一步、送出、儲存修改、後台等）。
+  - `AppHeader.tsx` 導覽列標示目前頁面（主色＋底線）：首頁含案件列表／詳情／填報，巡檢紀錄含單筆詳情，兩者互斥。
+  - 新增 `src/components/ResultBadge.tsx`：巡檢結果以淡底圓角色塊顯示（良好／尚可／不良／不適用沿用 `result-*` 語意色），用於詳情頁。
+  - 列表卡片：新增 `src/constants/ui.ts` 的 `LIST_CARD_CLASS`，案件列表、案件詳情的巡檢紀錄、巡檢紀錄頁共用。邊框加深＋`shadow-sm`；hover 改為主色淡藍底＋主色邊框＋上浮＋`shadow-md`（原 `hover:bg-slate-50` 在白底上幾乎看不出差異）。
+- `npx tsc -b`、`npm run build` 通過；以 `vite preview`（限 localhost、port 5173）讓使用者實際登入檢視後確認。
+
 ## 2026-10-20
 
 - 修正預設日期仍停在前一天（上一條 UTC 修正部署後使用者回報 10/20 開表單仍顯示 10/19；已確認線上 bundle 為新版）：真正原因是草稿還原。表單一打開就自動存草稿，未改過的預設日期／時間也被存入，草稿只在送出後刪除，因此前一天開過未送出的案件，之後開啟都還原成舊日期與舊時間。`InspectionFormPage.tsx` 新增 `dateTimeTouched` 隨草稿保存，只有使用者手動改過的日期／時間才沿用草稿值，否則改用現在時間；舊版草稿沒有此欄位，視為未改過（刻意改過的過去日期會被重設為今天，第一步可見、可再改）。`npm run build` 通過，尚未在瀏覽器實測。

@@ -17,7 +17,7 @@ export function LoginPage() {
       <button
         type="button"
         onClick={() => signInWithGoogle()}
-        className="rounded-lg bg-slate-900 px-6 py-3 text-lg font-medium text-white"
+        className="rounded-lg bg-primary px-6 py-3 text-lg font-medium text-white hover:bg-primary-dark"
       >
         使用 Google 帳號登入
       </button>

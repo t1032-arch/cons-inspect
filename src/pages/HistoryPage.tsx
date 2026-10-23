@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { LIST_CARD_CLASS } from '@/constants/ui';
 
 interface HistoryRow {
   id: string;
@@ -59,7 +60,7 @@ export function HistoryPage() {
           <li key={row.id}>
             <Link
               to={`/inspections/${row.id}`}
-              className="block rounded-lg border border-slate-200 p-4 hover:bg-slate-50"
+              className={LIST_CARD_CLASS}
             >
               <div className="flex items-center justify-between">
                 <p className="font-medium">{row.project?.project_name}</p>
@@ -69,9 +70,9 @@ export function HistoryPage() {
                 {row.location} ・ {row.inspector} ・ 照片 {row.photo_count} 張
               </p>
               {row.poor_count > 0 && (
-                <p className="text-sm font-medium text-result-poor md:text-base">
+                <span className="mt-1 inline-block rounded-full bg-result-poor/10 px-2.5 py-0.5 text-xs font-medium text-result-poor md:text-sm">
                   不良項目 {row.poor_count} 項
-                </p>
+                </span>
               )}
             </Link>
           </li>

@@ -4,6 +4,7 @@
 
 ## 2026-10-23
 
+- 資安：`vite` 5.4 → 8.3.5、`@vitejs/plugin-react` 4 → 6.1.2，修掉 vite/esbuild 的 dev-server 漏洞（只影響 `npm run dev`）。`vite.config.ts` 的 `__dirname` 改為 `import.meta.dirname`（Vite 8 原生 config loader 會警告）。`tsc -b`、`npm run build` 通過，`vite preview` 本機檢視登入頁正常。剩下的 audit 項目為 tailwind 3 相依與 react-router-dom，非 vite。
 - 美感調整（2026-09-24 使用者反饋，當時在另一台電腦未提交，本次套回最新 `origin/main` 後完成）：
   - 品牌主色：`tailwind.config.js` 新增 `primary`（`#2563eb`／`primary-dark` `#1d4ed8`），取代全站按鈕原本的 `bg-slate-900`（登入、新增巡檢、下一步、送出、儲存修改、後台等）。
   - `AppHeader.tsx` 導覽列標示目前頁面（主色＋底線）：首頁含案件列表／詳情／填報，巡檢紀錄含單筆詳情，兩者互斥。
